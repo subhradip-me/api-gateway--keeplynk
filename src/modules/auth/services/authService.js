@@ -47,18 +47,23 @@ class AuthService {
    * Login user
    */
   static async login(email, password) {
+    console.log(`[AUTH] Login attempt for email: ${email}`);
     const user = await User.findOne({ email });
     
     if (!user) {
+      console.log(`[AUTH] User not found: ${email}`);
       throw new Error('Invalid credentials');
     }
 
+    console.log(`[AUTH] User found: ${email}, checking password...`);
     const isPasswordValid = await user.comparePassword(password);
     
     if (!isPasswordValid) {
+      console.log(`[AUTH] Invalid password for: ${email}`);
       throw new Error('Invalid credentials');
     }
 
+    console.log(`[AUTH] Login successful for: ${email}`);
     // Update last login
     user.lastLogin = new Date();
     await user.save();

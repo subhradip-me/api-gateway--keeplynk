@@ -274,8 +274,8 @@ curl http://localhost:3000/health/modules
 
 ### Authentication Issues
 ```bash
-# Verify JWT_SECRET is set in .env
-# Check token expiration (default: 7 days)
+# Verify JWT_SECRET is set in .env 
+# Check token expiration (default: 14 days)
 ```
 
 ## 📝 Environment Variables
