@@ -6,6 +6,7 @@ import folderRoutes from './modules/core/routes/folderRoutes.js';
 import tagRoutes from './modules/core/routes/tagRoutes.js';
 import organiseRoutes from './modules/organise/routes/organise.routes.js';
 import studentRoutes from './modules/personas/student/routes/studentRoutes.js';
+import genaralRoutes from './modules/personas/genaral/routes/genaralRoutes.js';
 import professionalRoutes from './modules/personas/professional/routes/professionalRoutes.js';
 import creatorRoutes from './modules/personas/creator/routes/creatorRoutes.js';
 import entrepreneurRoutes from './modules/personas/entrepreneur/routes/entrepreneurRoutes.js';
@@ -32,7 +33,8 @@ router.get('/', (req, res) => {
       professional: '/api/professional',
       creator: '/api/creator',
       entrepreneur: '/api/entrepreneur',
-      researcher: '/api/researcher'
+      researcher: '/api/researcher',
+      genaral: '/api/genaral'
     }
   });
 });
@@ -53,6 +55,7 @@ router.use('/organise', organiseRoutes);
 
 // Persona-specific routes
 router.use('/student', studentRoutes);
+router.use('/genaral', genaralRoutes);
 router.use('/professional', professionalRoutes);
 router.use('/creator', creatorRoutes);
 router.use('/entrepreneur', entrepreneurRoutes);

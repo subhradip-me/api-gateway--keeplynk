@@ -8,6 +8,12 @@ class ResourceController {
       // Debug logging
       console.log('=== CREATE RESOURCE DEBUG ===');
       console.log('Request body:', JSON.stringify(req.body, null, 2));
+      console.log('req.user:', req.user);
+      console.log('PersonaContext:', req.personaContext);
+      console.log('User ID:', req.personaContext?.userId);
+      console.log('Persona from context:', req.personaContext?.persona);
+      console.log('Persona from body:', req.body.persona);
+      console.log('Authorization header:', req.headers.authorization ? 'Present' : 'Missing');
       console.log('Tags type:', typeof req.body.tags);
       console.log('Tags value:', req.body.tags);
       console.log('Tags is Array?:', Array.isArray(req.body.tags));
@@ -16,6 +22,13 @@ class ResourceController {
         console.log('First tag value:', req.body.tags[0]);
       }
       console.log('===========================');
+      
+      if (!req.personaContext || !req.personaContext.persona) {
+        console.error('❌ PERSONA CONTEXT MISSING OR INVALID');
+        console.error('Available req.personaContext:', req.personaContext);
+        console.error('Available req.user:', req.user);
+        return errorResponse(res, 'Persona context is required. Please add a persona to your account.', 400);
+      }
       
       const resource = await ResourceService.create(
         req.personaContext.userId,

@@ -31,15 +31,29 @@ http://localhost:3000/api
 
 ## Authentication
 
-Most endpoints require authentication using JWT (JSON Web Tokens).
+Most endpoints require authentication using JWT (JSON Web Tokens) **and an active persona**.
 
 ### How to Authenticate
 
 1. **Register or Login** to obtain a token
-2. **Include the token** in the `Authorization` header for protected routes:
+2. **Add a persona** to your account (required for most endpoints)
+3. **Include the token** in the `Authorization` header for protected routes:
 
 ```http
 Authorization: Bearer <your_jwt_token>
+```
+
+### Important: Persona Requirement
+
+⚠️ **Most API endpoints require an active persona.** After registration or login, you must add at least one persona to your account before accessing resource endpoints (bookmarks, folders, tags, etc.).
+
+If you attempt to access protected endpoints without a persona, you'll receive:
+```json
+{
+  "success": false,
+  "message": "No active persona. Please add a persona to your account first.",
+  "hint": "POST /api/auth/personas with { \"persona\": \"student\" }"
+}
 ```
 
 ### Token Structure
@@ -102,11 +116,28 @@ JWT tokens contain:
 | `200` | OK - Request successful |
 | `201` | Created - Resource created successfully |
 | `204` | No Content - Successful deletion |
-| `400` | Bad Request - Invalid input |
+| `400` | Bad Request - Invalid input or missing persona |
 | `401` | Unauthorized - Authentication required |
 | `403` | Forbidden - Insufficient permissions |
 | `404` | Not Found - Resource doesn't exist |
 | `500` | Internal Server Error - Server issue |
+
+### Common Error Scenarios
+
+**Missing Persona (400):**
+```json
+{
+  "success": false,
+  "message": "No active persona. Please add a persona to your account first.",
+  "hint": "POST /api/auth/personas with { \"persona\": \"student\" }"
+}
+```
+
+**Invalid CORS Origin:**
+```
+Access to XMLHttpRequest has been blocked by CORS policy
+```
+*Solution:* Ensure `CORS_ORIGIN` environment variable is properly configured without trailing commas.
 
 ---
 
@@ -127,9 +158,11 @@ Create a new user account.
   "password": "SecurePass123!",
   "firstName": "John",
   "lastName": "Doe",
-  "initialPersona": "student"  // Optional
+  "initialPersona": "student"  // Optional but recommended
 }
 ```
+
+**Note:** While `initialPersona` is optional, it's **highly recommended** to include it during registration. If omitted, you must call `POST /api/auth/personas` to add a persona before accessing most other endpoints.
 
 **Success Response (201):**
 ```json
@@ -265,10 +298,13 @@ Authorization: Bearer <token>
 ```json
 {
   "persona": "professional"
+},
+{ 
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."  
 }
 ```
 
-**Valid Personas:**
+**Note:** A new token is returned when switching personas. Use this updated token for subsequent requests.alid Personas:**
 - `student`
 - `creator`
 - `professional`
@@ -307,10 +343,13 @@ Switch active persona.
 **Success Response (200):**
 ```json
 {
-  "success": true,
-  "message": "Persona switched successfully",
-  "data": {
-    "currentPersona": "professional"
+  "success": true,,
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+**Important:** Use the new token returned in the response for all subsequent API calls. "currentPersona": "professional"
   }
 }
 ```
@@ -440,28 +479,43 @@ AI_ENGINE_URL=http://localhost:8080
 ```
 
 The AI Engine service should be running and accessible at the configured URL.
+Resource Endpoints
 
----
+Resources can be bookmarks (URLs), documents (uploaded files), or notes. All resource endpoints require authentication and an active persona.
 
-## Bookmark Endpoints
+### Create Resource
 
-### Create Bookmark
+Create a new resource (bookmark, document, or note).
 
-Create a new bookmark.
+**Endpoint:** `POST /api/resources`
 
-**Endpoint:** `POST /api/bookmarks`
-
-**Access:** Protected (with Persona Context)
-
-**Request Body:**
+**Access:** Pr (Bookmark):**
 ```json
 {
+  "type": "bookmark",
   "url": "https://example.com/article",
   "title": "Interesting Article",
   "description": "An article about web development",
   "tags": ["javascript", "tutorial"],
-  "folder": "507f1f77bcf86cd799439011",  // Optional folder ID
+  "folderId": "507f1f77bcf86cd799439011",  // Optional - defaults to "Uncategorized"
   "isFavorite": false,
+  "metadata": {
+    "imageUrl": "https://example.com/image.jpg",
+    "domain": "example.com",
+    "author": "John Smith"
+  }
+}
+```
+
+**Request Body (Note):**
+```json
+{
+  "type": "note",
+  "title": "My Study Notes",
+  "description": "Notes about JavaScript closures",
+  "content": "Detailed notes content here...",
+  "tags": ["javascript", "notes"],
+  "folderId": "507f1f77bcf86cd799439011"isFavorite": false,
   "metadata": {
     "imageUrl": "https://example.com/image.jpg",
     "domain": "example.com",
@@ -474,13 +528,30 @@ Create a new bookmark.
 ```json
 {
   "success": true,
-  "message": "Resource created successfully",
-  "data": {
-    "_id": "507f1f77bcf86cd799439012",
-    "userId": "507f1f77bcf86cd799439011",
-    "persona": "student",
-    "url": "https://example.com/article",
-    "title": "Interesting Article",
+  "mUpload Document
+
+Upload a file as a document resource.
+
+**Endpoint:** `POST /api/resources/upload`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Content-Type:** `multipart/form-data`
+
+**Form Data:**
+- `file` (required) - The file to upload
+- `folderId` (optional) - Filter by folder ID
+- `isFavorite` (optional) - Filter favorites (true/false)
+- `isArchived` (optional) - Filter archived resources (true/false)
+
+**Example:**
+```
+GET /api/resources?folderId=507f1f77bcf86cd799439011
+Retrieve all resources for current persona.
+
+**Endpoint:** `GET /api/resources`
+
+**Access:** Protected (with Persona Context - **Persona Required**
     "description": "An article about web development",
     "tags": ["javascript", "tutorial"],
     "isFavorite": false,
@@ -508,13 +579,13 @@ Retrieve all bookmarks for current persona.
 - `isFavorite` (optional) - Filter favorites (true/false)
 
 **Example:**
-```
-GET /api/bookmarks?page=1&limit=10&tags=javascript,tutorial&isFavorite=true
-```
+```Resources
 
-**Success Response (200):**
-```json
-{
+Search resources by title, description, URL, or content.
+
+**Endpoint:** `GET /api/resources/search`
+
+**Access:** Protected (with Persona Context - **Persona Required**
   "success": true,
   "message": "Success",
   "data": [
@@ -546,13 +617,13 @@ Search bookmarks by title, description, or URL.
 
 **Access:** Protected (with Persona Context)
 
-**Query Parameters:**
-- `q` (required) - Search query
-- `page` (optional) - Page number
-- `limit` (optional) - Items per page
+**Query Resource by ID
 
-**Example:**
-```
+Retrieve a specific resource.
+
+**Endpoint:** `GET /api/resources/:id`
+
+**Access:** Protected (with Persona Context - **Persona Required**
 GET /api/bookmarks/search?q=javascript&page=1&limit=10
 ```
 
@@ -600,13 +671,13 @@ Retrieve a specific bookmark.
     "title": "Interesting Article",
     "description": "An article about web development",
     "tags": ["javascript", "tutorial"],
-    "folder": {
-      "_id": "507f1f77bcf86cd799439013",
-      "name": "Programming Resources"
-    },
-    "isFavorite": false,
-    "metadata": {
-      "imageUrl": "https://example.com/image.jpg",
+    "folderResource
+
+Update an existing resource.
+
+**Endpoint:** `PUT /api/resources/:id`
+
+**Access:** Protected (with Persona Context - **Persona Required**e.jpg",
       "domain": "example.com"
     },
     "createdAt": "2025-12-26T10:00:00.000Z",
@@ -639,13 +710,13 @@ Update an existing bookmark.
 ```
 
 **Success Response (200):**
-```json
-{
-  "success": true,
-  "message": "Bookmark updated successfully",
-  "data": {
-    "_id": "507f1f77bcf86cd799439012",
-    "title": "Updated Title",
+```jsonResource
+
+Delete a resource.
+
+**Endpoint:** `DELETE /api/resources/:id`
+
+**Access:** Protected (with Persona Context - **Persona Required**
     "description": "Updated description",
     "tags": ["javascript", "web-dev", "tutorial"],
     "isFavorite": true,
@@ -692,7 +763,7 @@ Create a new folder for organizing bookmarks.
 
 **Access:** Protected (with Persona Context)
 
-**Request Body:**
+**Request Body:** - **Persona Required**
 ```json
 {
   "name": "Web Development",
@@ -733,7 +804,9 @@ Retrieve all folders for current persona.
 
 **Access:** Protected (with Persona Context)
 
-**Success Response (200):**
+**Success Response (200):** - **Persona Required**)
+
+**Note:** A default "Uncategorized" folder is automatically created for each persona when first accessed.
 ```json
 {
   "success": true,
@@ -852,7 +925,9 @@ No Content
 
 Create a new tag for categorizing bookmarks.
 
-**Endpoint:** `POST /api/tags`
+**Endpoint:** `POST /api/tags` - **Persona Required**)
+
+**Note:** Tags are automatically created when creating resources with new tag names. Manual tag creation is optional.
 
 **Access:** Protected (with Persona Context)
 
@@ -893,7 +968,7 @@ Create a new tag for categorizing bookmarks.
 
 ### Get All Tags
 
-Retrieve all tags for current persona.
+Retrieve all tags for current persona. - **Persona Required**
 
 **Endpoint:** `GET /api/tags`
 
@@ -1303,12 +1378,23 @@ curl -X POST http://localhost:3000/api/auth/login \
 curl -X GET http://localhost:3000/api/bookmarks \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
+Register with initial persona
+const registerResponse = await fetch('http://localhost:3000/api/auth/register', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    email: 'user@example.com',
+    password: 'SecurePass123!',
+    firstName: 'John',
+    lastName: 'Doe',
+    initialPersona: 'student'  // Important: Include persona
+  })
+});
+const { data: registerData } = await registerResponse.json();
+let token = registerData.token;
 
-### Using JavaScript/Fetch
-
-```javascript
-// Login
-const response = await fetch('http://localhost:3000/api/auth/login', {
+// Or if already registered, login and add persona
+const loginResponse = await fetch('http://localhost:3000/api/auth/login', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -1316,7 +1402,23 @@ const response = await fetch('http://localhost:3000/api/auth/login', {
     password: 'SecurePass123!'
   })
 });
-const { data } = await response.json();
+const { data: loginData } = await loginResponse.json();
+token = loginData.token;
+
+// Add persona if not already added
+const personaResponse = await fetch('http://localhost:3000/api/auth/personas', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({ persona: 'student' })
+});
+const { data: personaData } = await personaResponse.json();
+token = personaData.token;  // Use updated token
+
+// Now you can access resources
+const resources = await fetch('http://localhost:3000/api/resource
 const token = data.token;
 
 // Get bookmarks

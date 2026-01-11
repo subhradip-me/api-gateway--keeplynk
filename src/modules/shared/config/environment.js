@@ -15,10 +15,14 @@ const config = {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   
   // CORS
-  CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
+  CORS_ORIGIN: process.env.CORS_ORIGIN 
+    ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim()).filter(Boolean)
+    : (process.env.NODE_ENV === 'development' 
+      ? ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173']
+      : '*'),
   
   // Personas
-  VALID_PERSONAS: ['student', 'creator', 'professional', 'entrepreneur', 'researcher'],
+  VALID_PERSONAS: ['genaral', 'student', 'creator', 'professional', 'entrepreneur', 'researcher'],
   
   // Rate Limiting
   RATE_LIMIT_WINDOW_MS: 15 * 60 * 1000, // 15 minutes

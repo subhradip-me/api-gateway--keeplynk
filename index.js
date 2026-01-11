@@ -17,7 +17,25 @@ const PORT = config.PORT || 3000;
 
 //cors options
 const corsOptions = {
-  origin: config.CORS_ORIGIN
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = Array.isArray(config.CORS_ORIGIN) 
+      ? config.CORS_ORIGIN 
+      : [config.CORS_ORIGIN];
+    
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log(`CORS blocked origin: ${origin}`);
+      console.log(`Allowed origins:`, allowedOrigins);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-persona', 'X-Persona']
 };
 
 // Middleware

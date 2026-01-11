@@ -6,9 +6,13 @@ import config from '../config/environment.js';
  */
 const authenticate = async (req, res, next) => {
   try {
+    console.log('🔐 authenticate middleware called');
+    console.log('Authorization header:', req.header('Authorization'));
+    
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
     if (!token) {
+      console.log('❌ No token found');
       return res.status(401).json({ 
         success: false, 
         message: 'Authentication required' 
@@ -16,10 +20,12 @@ const authenticate = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, config.JWT_SECRET);
+    console.log('✅ Token decoded:', decoded);
     req.user = decoded;
     
     next();
   } catch (error) {
+    console.log('❌ Token verification failed:', error.message);
     res.status(401).json({ 
       success: false, 
       message: 'Invalid or expired token' 
@@ -81,18 +87,40 @@ const requirePersona = (...allowedPersonas) => {
  * Attach persona context to request
  */
 const personaContext = (req, res, next) => {
+  console.log('🔍 personaContext middleware called');
+  console.log('req.user:', req.user);
+  
   if (!req.user) {
+    console.log('❌ No req.user found');
     return res.status(401).json({
       success: false,
       message: 'Authentication required'
     });
   }
   
+  // Try to get persona from JWT token first, then fall back to X-Persona header
+  let persona = req.user.persona || req.user.currentPersona || req.headers['x-persona'];
+  console.log('Extracted persona:', persona);
+  
+  // If still no persona, try to get from user's personas array (use first one)
+  if (!persona && req.user.personas && req.user.personas.length > 0) {
+    persona = req.user.personas[0];
+    console.log('📌 Using first persona from user.personas:', persona);
+  }
+  
+  // If still no persona, default to 'genaral'
+  if (!persona) {
+    persona = 'genaral';
+    console.log('⚠️ No persona found, defaulting to "genaral"');
+  }
+  
   req.personaContext = {
     userId: req.user.userId || req.user._id,
-    persona: req.user.persona || req.user.currentPersona,
+    persona: persona,
     email: req.user.email
   };
+  
+  console.log('✅ personaContext set:', req.personaContext);
   next();
 };
 
