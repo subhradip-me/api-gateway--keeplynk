@@ -1,4 +1,4 @@
-# Urlyn 2.0 - Modular Backend Architecture 🚀
+# KeepLynk- Modular Backend Architecture 🚀
 
 > **Complete persona-specific backend with data isolation and scalable module system**
 
@@ -9,7 +9,7 @@
 
 ## 🎯 Overview
 
-Urlyn 2.0 is a complete rewrite of the backend architecture featuring a modular, persona-specific system that provides:
+KeepLynk 2.0 is a complete rewrite of the backend architecture featuring a modular, persona-specific system that provides:
 
 - ✅ **Complete Data Isolation** - Every persona has completely separate data
 - ✅ **Scalable Module System** - Easy to add new features and personas
@@ -283,7 +283,7 @@ curl http://localhost:3000/health/modules
 ```env
 NODE_ENV=development
 PORT=3000
-DATABASE_URL=mongodb://localhost:27017/urlyn
+DATABASE_URL=mongodb://localhost:27017/KeepLynk
 JWT_SECRET=your-secret-key-change-in-production
 JWT_EXPIRES_IN=7d
 CORS_ORIGIN=*
@@ -302,7 +302,7 @@ ISC
 
 ## 👥 Authors
 
-Built with ❤️ for Urlyn 2.0
+Built with ❤️ for KeepLynk 2.0
 
 ## 🙏 Acknowledgments
 
