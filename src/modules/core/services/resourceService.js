@@ -204,6 +204,30 @@ class ResourceService {
       ]
     }).populate('tags', 'name color').sort({ createdAt: -1 });
   }
+
+  static async moveToTrash(userId, persona, resourceId) {
+    const resource = await Resource.findOneAndUpdate(
+      PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId }),
+      { isTrashed: true },
+      { new: true }
+    );
+    if (!resource) {
+      throw new Error('Resource not found');
+    }
+    return resource;
+  }
+
+  static async restoreFromTrash(userId, persona, resourceId) {
+    const resource = await Resource.findOneAndUpdate(
+      PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId }),
+      { isTrashed: false },
+      { new: true }
+    );
+    if (!resource) {
+      throw new Error('Resource not found');
+    }
+    return resource;
+  }
 }
 
 export default ResourceService;

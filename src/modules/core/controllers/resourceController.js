@@ -193,6 +193,32 @@ class ResourceController {
       return errorResponse(res, error.message, 400);
     }
   }
+
+  static async moveToTrash(req, res) {
+    try {
+      const resource = await ResourceService.moveToTrash(
+        req.personaContext.userId,
+        req.personaContext.persona,
+        req.params.id
+      );
+      return successResponse(res, resource, 'Resource moved to trash successfully');
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+}
+
+  static async restoreFromTrash(req, res) {
+    try {
+      const resource = await ResourceService.restoreFromTrash(
+        req.personaContext.userId,
+        req.personaContext.persona,
+        req.params.id
+      );
+      return successResponse(res, resource, 'Resource restored from trash successfully');
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+  }
 }
 
 export default ResourceController;

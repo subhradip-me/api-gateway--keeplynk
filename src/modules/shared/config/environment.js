@@ -18,7 +18,7 @@ const config = {
   CORS_ORIGIN: process.env.CORS_ORIGIN 
     ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim()).filter(Boolean)
     : (process.env.NODE_ENV === 'development' 
-      ? ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173']
+      ? ['http://localhost:5173', 'http://localhost:8081', 'http://127.0.0.1:5173']
       : '*'),
   
   // Personas

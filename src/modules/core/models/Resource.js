@@ -75,6 +75,11 @@ const resourceSchema = new mongoose.Schema({
     default: false
   },
 
+  isTrashed: {
+    type: Boolean,
+    default: false
+  },
+
   metadata: {
     siteName: String,
     author: String,

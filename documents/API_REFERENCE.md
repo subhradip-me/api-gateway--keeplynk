@@ -9,10 +9,18 @@ Complete API documentation for all endpoints in the KeepLynk API Gateway.
 - [Error Codes](#error-codes)
 - [Authentication Endpoints](#authentication-endpoints)
 - [Agent Endpoints](#agent-endpoints)
+- [Resource Endpoints](#resource-endpoints)
+- [Auto-Organise Endpoints](#auto-organise-endpoints)
 - [Bookmark Endpoints](#bookmark-endpoints)
 - [Folder Endpoints](#folder-endpoints)
 - [Tag Endpoints](#tag-endpoints)
 - [Persona-Specific Endpoints](#persona-specific-endpoints)
+  - [General Persona](#general-persona)
+  - [Student Persona](#student-persona)
+  - [Professional Persona](#professional-persona)
+  - [Creator Persona](#creator-persona)
+  - [Entrepreneur Persona](#entrepreneur-persona)
+  - [Researcher Persona](#researcher-persona)
 
 ---
 
@@ -298,13 +306,11 @@ Authorization: Bearer <token>
 ```json
 {
   "persona": "professional"
-},
-{ 
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."  
 }
 ```
 
-**Note:** A new token is returned when switching personas. Use this updated token for subsequent requests.alid Personas:**
+**Valid Personas:**
+- `genaral` (general purpose)
 - `student`
 - `creator`
 - `professional`
@@ -317,8 +323,20 @@ Authorization: Bearer <token>
   "success": true,
   "message": "Persona added successfully",
   "data": {
-    "personas": ["student", "professional"],
-    "currentPersona": "student"
+    "user": {
+      "_id": "507f1f77bcf86cd799439011",
+      "email": "user@example.com",
+      "firstName": "John",
+      "lastName": "Doe",
+      "personas": ["student", "professional"],
+      "currentPersona": "student"
+    },
+    "profile": {
+      "_id": "507f1f77bcf86cd799439020",
+      "userId": "507f1f77bcf86cd799439011",
+      "persona": "professional",
+      "displayName": "John Doe"
+    }
   }
 }
 ```
@@ -343,16 +361,23 @@ Switch active persona.
 **Success Response (200):**
 ```json
 {
-  "success": true,,
+  "success": true,
+  "message": "Persona switched successfully",
+  "data": {
+    "user": {
+      "_id": "507f1f77bcf86cd799439011",
+      "email": "user@example.com",
+      "firstName": "John",
+      "lastName": "Doe",
+      "personas": ["student", "professional"],
+      "currentPersona": "professional"
+    },
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   }
 }
 ```
 
-**Important:** Use the new token returned in the response for all subsequent API calls. "currentPersona": "professional"
-  }
-}
-```
+**Important:** Use the new token returned in the response for all subsequent API calls.
 
 ---
 
@@ -373,8 +398,12 @@ Remove a persona from user account.
   "success": true,
   "message": "Persona removed successfully",
   "data": {
-    "personas": ["student"],
-    "currentPersona": "student"
+    "user": {
+      "_id": "507f1f77bcf86cd799439011",
+      "email": "user@example.com",
+      "personas": ["student"],
+      "currentPersona": "student"
+    }
   }
 }
 ```
@@ -479,9 +508,13 @@ AI_ENGINE_URL=http://localhost:8080
 ```
 
 The AI Engine service should be running and accessible at the configured URL.
-Resource Endpoints
+## Resource Endpoints
 
-Resources can be bookmarks (URLs), documents (uploaded files), or notes. All resource endpoints require authentication and an active persona.
+Resources can be **URLs** (web bookmarks) or **Documents** (uploaded files). All resource endpoints require authentication and an active persona.
+
+**Resource Types:**
+- `url` - Web bookmarks/links
+- `document` - Uploaded files (PDFs, images, etc.)
 
 ### Create Resource
 
@@ -489,38 +522,50 @@ Create a new resource (bookmark, document, or note).
 
 **Endpoint:** `POST /api/resources`
 
-**Access:** Pr (Bookmark):**
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Request Body (URL/Bookmark):**
 ```json
 {
-  "type": "bookmark",
+  "type": "url",
   "url": "https://example.com/article",
   "title": "Interesting Article",
   "description": "An article about web development",
-  "tags": ["javascript", "tutorial"],
-  "folderId": "507f1f77bcf86cd799439011",  // Optional - defaults to "Uncategorized"
+  "tags": ["507f1f77bcf86cd799439015"],  // Tag IDs (ObjectId refs)
+  "folderId": "507f1f77bcf86cd799439011",  // Optional
   "isFavorite": false,
+  "isArchived": false,
+  "favicon": "https://example.com/favicon.ico",
+  "thumbnail": "https://example.com/og-image.jpg",
   "metadata": {
-    "imageUrl": "https://example.com/image.jpg",
-    "domain": "example.com",
-    "author": "John Smith"
+    "siteName": "Example Site",
+    "author": "John Smith",
+    "publishedDate": "2025-12-20T00:00:00.000Z",
+    "readTime": 5
   }
 }
 ```
 
-**Request Body (Note):**
+**Request Body (Document):**
+
+**Note:** For uploading documents, use the `POST /api/resources/upload` endpoint instead. To create a document reference manually:
+
 ```json
 {
-  "type": "note",
-  "title": "My Study Notes",
-  "description": "Notes about JavaScript closures",
-  "content": "Detailed notes content here...",
-  "tags": ["javascript", "notes"],
-  "folderId": "507f1f77bcf86cd799439011"isFavorite": false,
-  "metadata": {
-    "imageUrl": "https://example.com/image.jpg",
-    "domain": "example.com",
-    "author": "John Smith"
-  }
+  "type": "document",
+  "title": "Research Paper",
+  "description": "Important research document",
+  "file": {
+    "path": "/uploads/document-1234567890.pdf",
+    "key": "uploads/user123/doc.pdf",
+    "name": "research-paper.pdf",
+    "mimeType": "application/pdf",
+    "size": 1024000
+  },
+  "tags": ["507f1f77bcf86cd799439015"],  // Tag IDs
+  "folderId": "507f1f77bcf86cd799439011",
+  "isFavorite": false,
+  "isArchived": false
 }
 ```
 
@@ -528,7 +573,36 @@ Create a new resource (bookmark, document, or note).
 ```json
 {
   "success": true,
-  "mUpload Document
+  "message": "Resource created successfully",
+  "data": {
+    "_id": "507f1f77bcf86cd799439012",
+    "userId": "507f1f77bcf86cd799439011",
+    "persona": "student",
+    "type": "url",
+    "url": "https://example.com/article",
+    "title": "Interesting Article",
+    "description": "An article about web development",
+    "tags": ["507f1f77bcf86cd799439015"],
+    "folderId": "507f1f77bcf86cd799439011",
+    "isFavorite": false,
+    "isArchived": false,
+    "favicon": "https://example.com/favicon.ico",
+    "thumbnail": "https://example.com/og-image.jpg",
+    "metadata": {
+      "siteName": "Example Site",
+      "author": "John Smith",
+      "publishedDate": "2025-12-20T00:00:00.000Z",
+      "readTime": 5
+    },
+    "createdAt": "2025-12-26T10:00:00.000Z",
+    "updatedAt": "2025-12-26T10:00:00.000Z"
+  }
+}
+```
+
+---
+
+### Upload Document
 
 Upload a file as a document resource.
 
@@ -540,61 +614,72 @@ Upload a file as a document resource.
 
 **Form Data:**
 - `file` (required) - The file to upload
-- `folderId` (optional) - Filter by folder ID
-- `isFavorite` (optional) - Filter favorites (true/false)
-- `isArchived` (optional) - Filter archived resources (true/false)
+- `title` (optional) - Document title
+- `description` (optional) - Document description  
+- `tags` (optional) - Comma-separated tag IDs
+- `folderId` (optional) - Folder ID
+- `isFavorite` (optional) - Mark as favorite (true/false)
 
-**Example:**
-```
-GET /api/resources?folderId=507f1f77bcf86cd799439011
-Retrieve all resources for current persona.
-
-**Endpoint:** `GET /api/resources`
-
-**Access:** Protected (with Persona Context - **Persona Required**
-    "description": "An article about web development",
-    "tags": ["javascript", "tutorial"],
-    "isFavorite": false,
-    "createdAt": "2025-12-26T10:00:00.000Z",
-    "updatedAt": "2025-12-26T10:00:00.000Z"
+**Success Response (201):**
+```json
+{
+  "success": true,
+  "message": "Document uploaded successfully",
+  "data": {
+    "_id": "507f1f77bcf86cd799439012",
+    "userId": "507f1f77bcf86cd799439011",
+    "persona": "student",
+    "type": "document",
+    "title": "Research Paper.pdf",
+    "file": {
+      "path": "/uploads/document-1234567890.pdf",
+      "key": "uploads/user123/doc.pdf",
+      "name": "research-paper.pdf",
+      "mimeType": "application/pdf",
+      "size": 1024000
+    },
+    "createdAt": "2025-12-26T10:00:00.000Z"
   }
 }
 ```
 
 ---
 
-### Get All Bookmarks
+### Get All Resources
 
-Retrieve all bookmarks for current persona.
+Retrieve all resources for current persona.
 
-**Endpoint:** `GET /api/bookmarks`
+**Endpoint:** `GET /api/resources`
 
-**Access:** Protected (with Persona Context)
+**Access:** Protected (with Persona Context - **Persona Required**)
 
 **Query Parameters:**
 - `page` (optional) - Page number (default: 1)
 - `limit` (optional) - Items per page (default: 20)
-- `tags` (optional) - Filter by tags (comma-separated)
-- `folder` (optional) - Filter by folder ID
+- `type` (optional) - Filter by type (`url` or `document`)
+- `tags` (optional) - Filter by tag IDs (comma-separated)
+- `folderId` (optional) - Filter by folder ID
 - `isFavorite` (optional) - Filter favorites (true/false)
+- `isArchived` (optional) - Filter archived resources (true/false)
 
 **Example:**
-```Resources
+```
+GET /api/resources?type=url&folderId=507f1f77bcf86cd799439011&page=1&limit=10
+```
 
-Search resources by title, description, URL, or content.
-
-**Endpoint:** `GET /api/resources/search`
-
-**Access:** Protected (with Persona Context - **Persona Required**
+**Success Response (200):**
+```json
+{
   "success": true,
-  "message": "Success",
+  "message": "Resources retrieved successfully",
   "data": [
     {
       "_id": "507f1f77bcf86cd799439012",
+      "type": "url",
       "url": "https://example.com/article",
       "title": "Interesting Article",
-      "tags": ["javascript", "tutorial"],
-      "isFavorite": true,
+      "tags": ["507f1f77bcf86cd799439015"],
+      "isFavorite": false,
       "createdAt": "2025-12-26T10:00:00.000Z"
     }
   ],
@@ -609,22 +694,61 @@ Search resources by title, description, URL, or content.
 
 ---
 
-### Search Bookmarks
+### Get Unorganized Resources
 
-Search bookmarks by title, description, or URL.
+Retrieve all resources that haven't been organized (no folder assigned).
 
-**Endpoint:** `GET /api/bookmarks/search`
+**Endpoint:** `GET /api/resources/unorganized`
 
-**Access:** Protected (with Persona Context)
+**Access:** Protected (with Persona Context - **Persona Required**)
 
-**Query Resource by ID
+**Query Parameters:**
+- `page` (optional) - Page number (default: 1)
+- `limit` (optional) - Items per page (default: 20)
 
-Retrieve a specific resource.
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Unorganized resources retrieved successfully",
+  "data": [
+    {
+      "_id": "507f1f77bcf86cd799439012",
+      "type": "url",
+      "url": "https://example.com/article",
+      "title": "Interesting Article",
+      "folderId": null,
+      "createdAt": "2025-12-26T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 15,
+    "pages": 1
+  }
+}
+```
 
-**Endpoint:** `GET /api/resources/:id`
+---
 
-**Access:** Protected (with Persona Context - **Persona Required**
-GET /api/bookmarks/search?q=javascript&page=1&limit=10
+### Search Resources
+
+Search resources by title, description, URL, or content.
+
+**Endpoint:** `GET /api/resources/search`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Query Parameters:**
+- `q` (required) - Search query
+- `type` (optional) - Filter by type (`url` or `document`)
+- `page` (optional) - Page number (default: 1)
+- `limit` (optional) - Items per page (default: 20)
+
+**Example:**
+```
+GET /api/resources/search?q=javascript&type=url&page=1&limit=10
 ```
 
 **Success Response (200):**
@@ -632,6 +756,234 @@ GET /api/bookmarks/search?q=javascript&page=1&limit=10
 {
   "success": true,
   "message": "Search results",
+  "data": [
+    {
+      "_id": "507f1f77bcf86cd799439012",
+      "type": "url",
+      "url": "https://example.com/javascript-guide",
+      "title": "JavaScript Complete Guide",
+      "description": "Learn JavaScript from scratch",
+      "tags": ["507f1f77bcf86cd799439015"],
+      "createdAt": "2025-12-26T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+### Get Resource by ID
+
+Retrieve a specific resource.
+
+**Endpoint:** `GET /api/resources/:id`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Path Parameters:**
+- `id` - Resource ID
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Resource retrieved successfully",
+  "data": {
+    "_id": "507f1f77bcf86cd799439012",
+    "userId": "507f1f77bcf86cd799439011",
+    "persona": "student",
+    "type": "url",
+    "url": "https://example.com/article",
+    "title": "Interesting Article",
+    "description": "An article about web development",
+    "tags": ["507f1f77bcf86cd799439015"],
+    "folderId": "507f1f77bcf86cd799439013",
+    "isFavorite": false,
+    "isArchived": false,
+    "favicon": "https://example.com/favicon.ico",
+    "thumbnail": "https://example.com/og-image.jpg",
+    "metadata": {
+      "siteName": "Example Site",
+      "author": "John Smith",
+      "publishedDate": "2025-12-20T00:00:00.000Z",
+      "readTime": 5
+    },
+    "createdAt": "2025-12-26T10:00:00.000Z",
+    "updatedAt": "2025-12-26T10:00:00.000Z"
+  }
+}
+```
+
+---
+
+### Update Resource
+
+Update an existing resource.
+
+**Endpoint:** `PUT /api/resources/:id`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Path Parameters:**
+- `id` - Resource ID
+
+**Request Body:**
+```json
+{
+  "title": "Updated Title",
+  "description": "Updated description",
+  "tags": ["javascript", "web-dev", "tutorial"],
+  "isFavorite": true
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Resource updated successfully",
+  "data": {
+    "_id": "507f1f77bcf86cd799439012",
+    "title": "Updated Title",
+    "description": "Updated description",
+    "tags": ["javascript", "web-dev", "tutorial"],
+    "isFavorite": true,
+    "updatedAt": "2025-12-26T11:00:00.000Z"
+  }
+}
+```
+
+---
+
+### Delete Resource
+
+Delete a resource.
+
+**Endpoint:** `DELETE /api/resources/:id`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Path Parameters:**
+- `id` - Resource ID
+
+**Success Response (204):**
+```
+No Content
+```
+
+**Error Response (404):**
+```json
+{
+  "success": false,
+  "message": "Resource not found"
+}
+```
+
+---
+
+### Move Resource to Trash
+
+Move a resource to trash without permanently deleting it.
+
+**Endpoint:** `PATCH /api/resources/:id/trash`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Path Parameters:**
+- `id` - Resource ID
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Resource moved to trash successfully",
+  "data": {
+    "_id": "507f1f77bcf86cd799439012",
+    "userId": "507f1f77bcf86cd799439011",
+    "persona": "student",
+    "type": "url",
+    "title": "Interesting Article",
+    "isTrashed": true,
+    "updatedAt": "2026-02-03T19:59:30.312Z"
+  }
+}
+```
+
+**Error Response (404):**
+```json
+{
+  "success": false,
+  "message": "Resource not found"
+}
+```
+
+---
+
+### Restore Resource from Trash
+
+Restore a trashed resource back to active state.
+
+**Endpoint:** `PATCH /api/resources/:id/restore`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Path Parameters:**
+- `id` - Resource ID
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Resource restored from trash successfully",
+  "data": {
+    "_id": "507f1f77bcf86cd799439012",
+    "userId": "507f1f77bcf86cd799439011",
+    "persona": "student",
+    "type": "url",
+    "title": "Interesting Article",
+    "isTrashed": false,
+    "updatedAt": "2026-02-03T19:59:31.327Z"
+  }
+}
+```
+
+**Error Response (404):**
+```json
+{
+  "success": false,
+  "message": "Resource not found"
+}
+```
+
+---
+
+## Bookmark Endpoints
+
+### Get All Bookmarks
+
+Retrieve all bookmarks for current persona.
+
+**Endpoint:** `GET /api/bookmarks`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Query Parameters:**
+- `page` (optional) - Page number (default: 1)
+- `limit` (optional) - Items per page (default: 20)
+- `tags` (optional) - Filter by tags (comma-separated)
+- `folder` (optional) - Filter by folder ID
+- `isFavorite` (optional) - Filter favorites (true/false)
+
+**Example:**
+```
+GET /api/bookmarks?folderId=507f1f77bcf86cd799439011&page=1&limit=10
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Bookmarks retrieved successfully",
   "data": [
     {
       "_id": "507f1f77bcf86cd799439012",
@@ -653,7 +1005,7 @@ Retrieve a specific bookmark.
 
 **Endpoint:** `GET /api/bookmarks/:id`
 
-**Access:** Protected (with Persona Context)
+**Access:** Protected (with Persona Context - **Persona Required**)
 
 **Path Parameters:**
 - `id` - Bookmark ID
@@ -662,7 +1014,7 @@ Retrieve a specific bookmark.
 ```json
 {
   "success": true,
-  "message": "Success",
+  "message": "Bookmark retrieved successfully",
   "data": {
     "_id": "507f1f77bcf86cd799439012",
     "userId": "507f1f77bcf86cd799439011",
@@ -671,13 +1023,10 @@ Retrieve a specific bookmark.
     "title": "Interesting Article",
     "description": "An article about web development",
     "tags": ["javascript", "tutorial"],
-    "folderResource
-
-Update an existing resource.
-
-**Endpoint:** `PUT /api/resources/:id`
-
-**Access:** Protected (with Persona Context - **Persona Required**e.jpg",
+    "folderId": "507f1f77bcf86cd799439013",
+    "isFavorite": false,
+    "metadata": {
+      "imageUrl": "https://example.com/image.jpg",
       "domain": "example.com"
     },
     "createdAt": "2025-12-26T10:00:00.000Z",
@@ -694,7 +1043,7 @@ Update an existing bookmark.
 
 **Endpoint:** `PUT /api/bookmarks/:id`
 
-**Access:** Protected (with Persona Context)
+**Access:** Protected (with Persona Context - **Persona Required**)
 
 **Path Parameters:**
 - `id` - Bookmark ID
@@ -710,13 +1059,13 @@ Update an existing bookmark.
 ```
 
 **Success Response (200):**
-```jsonResource
-
-Delete a resource.
-
-**Endpoint:** `DELETE /api/resources/:id`
-
-**Access:** Protected (with Persona Context - **Persona Required**
+```json
+{
+  "success": true,
+  "message": "Bookmark updated successfully",
+  "data": {
+    "_id": "507f1f77bcf86cd799439012",
+    "title": "Updated Title"
     "description": "Updated description",
     "tags": ["javascript", "web-dev", "tutorial"],
     "isFavorite": true,
@@ -733,7 +1082,7 @@ Delete a bookmark.
 
 **Endpoint:** `DELETE /api/bookmarks/:id`
 
-**Access:** Protected (with Persona Context)
+**Access:** Protected (with Persona Context - **Persona Required**)
 
 **Path Parameters:**
 - `id` - Bookmark ID
@@ -753,25 +1102,179 @@ No Content
 
 ---
 
+## Auto-Organise Endpoints
+
+The Auto-Organise feature uses AI to automatically categorize and organize your unorganized resources. All endpoints require authentication and an active persona.
+
+### Auto-Organise Resources
+
+Trigger auto-organisation for unorganized resources. This endpoint returns immediately while processing happens asynchronously in the background.
+
+**Endpoint:** `POST /api/organise/auto`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Query Parameters:**
+- `limit` (optional) - Maximum number of resources to organize (default: 50, max: 100)
+
+**Example:**
+```
+POST /api/organise/auto?limit=30
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "status": "started",
+  "message": "Auto organise in progress. Your resources are being organized.",
+  "limit": 30
+}
+```
+
+**Error Response (400):**
+```json
+{
+  "success": false,
+  "message": "Limit must be between 1 and 100"
+}
+```
+
+**Note:** The actual organization happens asynchronously. Resources will be categorized, tagged, and moved to appropriate folders based on AI analysis.
+
+---
+
+### Preview Auto-Organise
+
+Get a preview of how many resources will be organized.
+
+**Endpoint:** `GET /api/organise/preview`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "count": 45,
+  "message": "Found 45 unorganised resources"
+}
+```
+
+---
+
+### Extract Metadata
+
+Extract metadata from a URL for auto-filling resource forms using AI.
+
+**Endpoint:** `POST /api/organise/extract-metadata`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Request Body:**
+```json
+{
+  "url": "https://example.com/article-about-javascript"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Metadata extracted successfully",
+  "data": {
+    "title": "Complete Guide to JavaScript",
+    "description": "Learn JavaScript from basics to advanced concepts",
+    "suggestedTags": ["javascript", "programming", "tutorial"],
+    "suggestedFolder": "Programming Resources",
+    "favicon": "https://example.com/favicon.ico",
+    "thumbnail": "https://example.com/og-image.jpg",
+    "metadata": {
+      "siteName": "Example Tech Blog",
+      "author": "John Doe",
+      "publishedDate": "2025-01-15T00:00:00.000Z",
+      "readTime": 8
+    }
+  }
+}
+```
+
+**Error Response (400):**
+```json
+{
+  "success": false,
+  "message": "Invalid URL provided"
+}
+```
+
+**Note:** This endpoint is useful for pre-filling forms when users add new bookmarks. It analyzes the URL content and suggests appropriate metadata.
+
+---
+
+### Extract Document Metadata
+
+Extract metadata from an uploaded document file for auto-filling resource forms using AI.
+
+**Endpoint:** `POST /api/organise/extract-document-metadata`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Content-Type:** `multipart/form-data`
+
+**Form Data:**
+- `file` (required) - The document file to analyze
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "title": "Research Paper on Machine Learning",
+    "description": "Comprehensive study on neural networks",
+    "suggestedTags": ["machine-learning", "AI", "research"],
+    "suggestedFolder": "Research Documents",
+    "metadata": {
+      "author": "Dr. Jane Smith",
+      "pageCount": 45,
+      "keywords": ["neural networks", "deep learning"]
+    }
+  }
+}
+```
+
+**Error Response (400):**
+```json
+{
+  "success": false,
+  "message": "File is required"
+}
+```
+
+---
+
 ## Folder Endpoints
 
 ### Create Folder
 
-Create a new folder for organizing bookmarks.
+Create a new folder for organizing resources.
 
 **Endpoint:** `POST /api/folders`
 
-**Access:** Protected (with Persona Context)
+**Access:** Protected (with Persona Context - **Persona Required**)
 
-**Request Body:** - **Persona Required**
+**Request Body:**
 ```json
 {
   "name": "Web Development",
   "description": "Resources for web development",
   "color": "#3B82F6",
   "icon": "folder",
-  "parentFolder": null,  // Optional parent folder ID
-  "isPrivate": false
+  "parentId": null,  // Optional parent folder ID
+  "order": 0,  // Display order
+  "isShared": false,
+  "isDefault": false
+}
 }
 ```
 
@@ -788,7 +1291,10 @@ Create a new folder for organizing bookmarks.
     "description": "Resources for web development",
     "color": "#3B82F6",
     "icon": "folder",
-    "isPrivate": false,
+    "parentId": null,
+    "order": 0,
+    "isShared": false,
+    "isDefault": false,
     "createdAt": "2025-12-26T10:00:00.000Z"
   }
 }
@@ -802,9 +1308,11 @@ Retrieve all folders for current persona.
 
 **Endpoint:** `GET /api/folders`
 
-**Access:** Protected (with Persona Context)
+**Access:** Protected (with Persona Context - **Persona Required**)
 
-**Success Response (200):** - **Persona Required**)
+**Note:** A default "Uncategorized" folder is automatically created for each persona when first accessed.
+
+**Success Response (200):
 
 **Note:** A default "Uncategorized" folder is automatically created for each persona when first accessed.
 ```json
@@ -832,7 +1340,7 @@ Retrieve a specific folder.
 
 **Endpoint:** `GET /api/folders/:id`
 
-**Access:** Protected (with Persona Context)
+**Access:** Protected (with Persona Context - **Persona Required**)
 
 **Path Parameters:**
 - `id` - Folder ID
@@ -862,7 +1370,7 @@ Update an existing folder.
 
 **Endpoint:** `PUT /api/folders/:id`
 
-**Access:** Protected (with Persona Context)
+**Access:** Protected (with Persona Context - **Persona Required**)
 
 **Path Parameters:**
 - `id` - Folder ID
@@ -899,7 +1407,7 @@ Delete a folder.
 
 **Endpoint:** `DELETE /api/folders/:id`
 
-**Access:** Protected (with Persona Context)
+**Access:** Protected (with Persona Context - **Persona Required**)
 
 **Path Parameters:**
 - `id` - Folder ID
@@ -925,11 +1433,11 @@ No Content
 
 Create a new tag for categorizing bookmarks.
 
-**Endpoint:** `POST /api/tags` - **Persona Required**)
+**Endpoint:** `POST /api/tags`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
 
 **Note:** Tags are automatically created when creating resources with new tag names. Manual tag creation is optional.
-
-**Access:** Protected (with Persona Context)
 
 **Request Body:**
 ```json
@@ -968,11 +1476,11 @@ Create a new tag for categorizing bookmarks.
 
 ### Get All Tags
 
-Retrieve all tags for current persona. - **Persona Required**
+Retrieve all tags for current persona.
 
 **Endpoint:** `GET /api/tags`
 
-**Access:** Protected (with Persona Context)
+**Access:** Protected (with Persona Context - **Persona Required**)
 
 **Success Response (200):**
 ```json
@@ -1006,7 +1514,7 @@ Retrieve a specific tag.
 
 **Endpoint:** `GET /api/tags/:id`
 
-**Access:** Protected (with Persona Context)
+**Access:** Protected (with Persona Context - **Persona Required**)
 
 **Path Parameters:**
 - `id` - Tag ID
@@ -1034,7 +1542,7 @@ Retrieve most frequently used tags.
 
 **Endpoint:** `GET /api/tags/popular`
 
-**Access:** Protected (with Persona Context)
+**Access:** Protected (with Persona Context - **Persona Required**)
 
 **Query Parameters:**
 - `limit` (optional) - Number of tags to return (default: 10)
@@ -1074,7 +1582,7 @@ Update an existing tag.
 
 **Endpoint:** `PUT /api/tags/:id`
 
-**Access:** Protected (with Persona Context)
+**Access:** Protected (with Persona Context - **Persona Required**)
 
 **Path Parameters:**
 - `id` - Tag ID
@@ -1110,7 +1618,7 @@ Delete a tag.
 
 **Endpoint:** `DELETE /api/tags/:id`
 
-**Access:** Protected (with Persona Context)
+**Access:** Protected (with Persona Context - **Persona Required**)
 
 **Path Parameters:**
 - `id` - Tag ID
@@ -1136,9 +1644,65 @@ Delete a tag.
 
 ## Persona-Specific Endpoints
 
+Each persona has its own specialized endpoints for managing persona-specific data. All endpoints require authentication and that the user has added the specific persona to their account.
+
+---
+
+### General Persona
+
+**Base Path:** `/api/genaral`
+
+**Access:** Protected (Requires `genaral` persona)
+
+#### Get Dashboard
+
+Retrieve dashboard data for general persona.
+
+**Endpoint:** `GET /api/genaral/dashboard`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Dashboard data retrieved successfully",
+  "data": {
+    "stats": {
+      "totalResources": 45,
+      "totalFolders": 8,
+      "totalTags": 15
+    }
+  }
+}
+```
+
+---
+
 ### Student Persona
 
-#### Create Assignment
+**Base Path:** `/api/student`
+
+**Access:** Protected (Requires `student` persona)
+
+#### Get Dashboard
+
+**Endpoint:** `GET /api/student/dashboard`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Dashboard retrieved successfully",
+  "data": {
+    "assignments": [],
+    "courses": [],
+    "recentSessions": []
+  }
+}
+```
+
+#### Assignment Endpoints
+
+**Create Assignment**
 
 **Endpoint:** `POST /api/student/assignments`
 
@@ -1147,23 +1711,50 @@ Delete a tag.
 {
   "title": "Math Homework",
   "description": "Chapter 5 exercises",
-  "course": "Mathematics 101",
+  "course": "507f1f77bcf86cd799439014",  // Course ID
   "dueDate": "2025-12-31T23:59:59.000Z",
   "priority": "high",
   "status": "in-progress"
 }
 ```
 
-#### Get All Assignments
+**Get All Assignments**
 
 **Endpoint:** `GET /api/student/assignments`
 
 **Query Parameters:**
-- `status` - Filter by status (pending, in-progress, completed)
-- `priority` - Filter by priority (low, medium, high)
-- `course` - Filter by course name
+- `status` (optional) - Filter by status (pending, in-progress, completed)
+- `priority` (optional) - Filter by priority (low, medium, high)
+- `course` (optional) - Filter by course ID
 
-#### Create Course
+**Update Assignment**
+
+**Endpoint:** `PUT /api/student/assignments/:id`
+
+**Request Body:**
+```json
+{
+  "status": "completed",
+  "priority": "medium"
+}
+```
+
+**Delete Assignment**
+
+**Endpoint:** `DELETE /api/student/assignments/:id`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Assignment deleted successfully",
+  "data": null
+}
+```
+
+#### Course Endpoints
+
+**Create Course**
 
 **Endpoint:** `POST /api/student/courses`
 
@@ -1174,22 +1765,67 @@ Delete a tag.
   "code": "CS-301",
   "instructor": "Dr. Smith",
   "schedule": "Mon, Wed, Fri 10:00 AM",
-  "credits": 3
+  "credits": 3,
+  "semester": "Fall 2026"
 }
 ```
 
-#### Create Study Session
+**Get All Courses**
+
+**Endpoint:** `GET /api/student/courses`
+
+**Update Course**
+
+**Endpoint:** `PUT /api/student/courses/:id`
+
+**Delete Course**
+
+**Endpoint:** `DELETE /api/student/courses/:id`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Course deleted successfully",
+  "data": null
+}
+```
+
+#### Study Session Endpoints
+
+**Create Study Session**
 
 **Endpoint:** `POST /api/student/study-sessions`
 
 **Request Body:**
 ```json
 {
-  "course": "507f1f77bcf86cd799439014",
+  "course": "507f1f77bcf86cd799439014",  // Course ID
   "duration": 120,  // minutes
   "topic": "React Hooks",
-  "notes": "Covered useState and useEffect",
+  "notes": "Covered useState and useEffect hooks",
   "date": "2025-12-26T14:00:00.000Z"
+}
+```
+
+**Get All Study Sessions**
+
+**Endpoint:** `GET /api/student/study-sessions`
+
+**Update Study Session**
+
+**Endpoint:** `PUT /api/student/study-sessions/:id`
+
+**Delete Study Session**
+
+**Endpoint:** `DELETE /api/student/study-sessions/:id`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Study session deleted successfully",
+  "data": null
 }
 ```
 
@@ -1197,7 +1833,17 @@ Delete a tag.
 
 ### Professional Persona
 
-#### Create Project
+**Base Path:** `/api/professional`
+
+**Access:** Protected (Requires `professional` persona)
+
+#### Get Dashboard
+
+**Endpoint:** `GET /api/professional/dashboard`
+
+#### Project Endpoints
+
+**Create Project**
 
 **Endpoint:** `POST /api/professional/projects`
 
@@ -1208,12 +1854,36 @@ Delete a tag.
   "description": "Building a new e-commerce system",
   "client": "Acme Corp",
   "status": "in-progress",
-  "startDate": "2025-01-01",
-  "deadline": "2025-06-30"
+  "startDate": "2026-01-01",
+  "deadline": "2026-06-30",
+  "priority": "high"
 }
 ```
 
-#### Create Contact
+**Get All Projects**
+
+**Endpoint:** `GET /api/professional/projects`
+
+**Update Project**
+
+**Endpoint:** `PUT /api/professional/projects/:id`
+
+**Delete Project**
+
+**Endpoint:** `DELETE /api/professional/projects/:id`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Project deleted successfully",
+  "data": null
+}
+```
+
+#### Contact Endpoints
+
+**Create Contact**
 
 **Endpoint:** `POST /api/professional/contacts`
 
@@ -1225,7 +1895,29 @@ Delete a tag.
   "position": "CTO",
   "email": "jane@techcorp.com",
   "phone": "+1234567890",
-  "notes": "Met at tech conference"
+  "notes": "Met at tech conference",
+  "tags": ["networking", "technology"]
+}
+```
+
+**Get All Contacts**
+
+**Endpoint:** `GET /api/professional/contacts`
+
+**Update Contact**
+
+**Endpoint:** `PUT /api/professional/contacts/:id`
+
+**Delete Contact**
+
+**Endpoint:** `DELETE /api/professional/contacts/:id`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Contact deleted successfully",
+  "data": null
 }
 ```
 
@@ -1233,7 +1925,17 @@ Delete a tag.
 
 ### Creator Persona
 
-#### Create Project
+**Base Path:** `/api/creator`
+
+**Access:** Protected (Requires `creator` persona)
+
+#### Get Dashboard
+
+**Endpoint:** `GET /api/creator/dashboard`
+
+#### Project Endpoints
+
+**Create Project**
 
 **Endpoint:** `POST /api/creator/projects`
 
@@ -1244,11 +1946,35 @@ Delete a tag.
   "description": "Web development tutorial series",
   "platform": "YouTube",
   "status": "planning",
-  "deadline": "2025-12-31"
+  "deadline": "2026-03-31",
+  "priority": "high"
 }
 ```
 
-#### Create Calendar Entry
+**Get All Projects**
+
+**Endpoint:** `GET /api/creator/projects`
+
+**Update Project**
+
+**Endpoint:** `PUT /api/creator/projects/:id`
+
+**Delete Project**
+
+**Endpoint:** `DELETE /api/creator/projects/:id`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Project deleted successfully",
+  "data": null
+}
+```
+
+#### Calendar Endpoints
+
+**Create Calendar Entry**
 
 **Endpoint:** `POST /api/creator/calendar`
 
@@ -1258,8 +1984,30 @@ Delete a tag.
   "title": "Upload New Video",
   "contentType": "video",
   "platform": "YouTube",
-  "scheduledDate": "2025-12-30T10:00:00.000Z",
-  "status": "scheduled"
+  "scheduledDate": "2026-01-30T10:00:00.000Z",
+  "status": "scheduled",
+  "notes": "Tutorial about React hooks"
+}
+```
+
+**Get Calendar**
+
+**Endpoint:** `GET /api/creator/calendar`
+
+**Update Calendar Entry**
+
+**Endpoint:** `PUT /api/creator/calendar/:id`
+
+**Delete Calendar Entry**
+
+**Endpoint:** `DELETE /api/creator/calendar/:id`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Calendar entry deleted successfully",
+  "data": null
 }
 ```
 
@@ -1267,7 +2015,17 @@ Delete a tag.
 
 ### Entrepreneur Persona
 
-#### Create Startup
+**Base Path:** `/api/entrepreneur`
+
+**Access:** Protected (Requires `entrepreneur` persona)
+
+#### Get Dashboard
+
+**Endpoint:** `GET /api/entrepreneur/dashboard`
+
+#### Startup Endpoints
+
+**Create Startup**
 
 **Endpoint:** `POST /api/entrepreneur/startups`
 
@@ -1278,11 +2036,35 @@ Delete a tag.
   "description": "AI-powered analytics platform",
   "industry": "SaaS",
   "stage": "seed",
-  "founded": "2025-01-01"
+  "founded": "2026-01-01",
+  "website": "https://techstartup.com"
 }
 ```
 
-#### Create Investor Entry
+**Get All Startups**
+
+**Endpoint:** `GET /api/entrepreneur/startups`
+
+**Update Startup**
+
+**Endpoint:** `PUT /api/entrepreneur/startups/:id`
+
+**Delete Startup**
+
+**Endpoint:** `DELETE /api/entrepreneur/startups/:id`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Startup deleted successfully",
+  "data": null
+}
+```
+
+#### Investor Endpoints
+
+**Create Investor**
 
 **Endpoint:** `POST /api/entrepreneur/investors`
 
@@ -1292,8 +2074,31 @@ Delete a tag.
   "name": "Venture Capital Partners",
   "contactPerson": "John Investor",
   "email": "john@vcpartners.com",
+  "phone": "+1234567890",
   "investmentRange": "$500K - $2M",
-  "sector": "Technology"
+  "sector": "Technology",
+  "notes": "Interested in AI startups"
+}
+```
+
+**Get All Investors**
+
+**Endpoint:** `GET /api/entrepreneur/investors`
+
+**Update Investor**
+
+**Endpoint:** `PUT /api/entrepreneur/investors/:id`
+
+**Delete Investor**
+
+**Endpoint:** `DELETE /api/entrepreneur/investors/:id`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Investor deleted successfully",
+  "data": null
 }
 ```
 
@@ -1301,7 +2106,17 @@ Delete a tag.
 
 ### Researcher Persona
 
-#### Create Research Project
+**Base Path:** `/api/researcher`
+
+**Access:** Protected (Requires `researcher` persona)
+
+#### Get Dashboard
+
+**Endpoint:** `GET /api/researcher/dashboard`
+
+#### Research Project Endpoints
+
+**Create Research Project**
 
 **Endpoint:** `POST /api/researcher/projects`
 
@@ -1311,12 +2126,36 @@ Delete a tag.
   "title": "Machine Learning Study",
   "description": "Research on neural networks",
   "status": "active",
-  "startDate": "2025-01-01",
-  "field": "Computer Science"
+  "startDate": "2026-01-01",
+  "field": "Computer Science",
+  "collaborators": ["Dr. Jane Doe", "Prof. John Smith"]
 }
 ```
 
-#### Create Publication
+**Get All Projects**
+
+**Endpoint:** `GET /api/researcher/projects`
+
+**Update Project**
+
+**Endpoint:** `PUT /api/researcher/projects/:id`
+
+**Delete Project**
+
+**Endpoint:** `DELETE /api/researcher/projects/:id`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Project deleted successfully",
+  "data": null
+}
+```
+
+#### Publication Endpoints
+
+**Create Publication**
 
 **Endpoint:** `POST /api/researcher/publications`
 
@@ -1326,9 +2165,32 @@ Delete a tag.
   "title": "Neural Networks in Practice",
   "authors": ["Dr. Smith", "Dr. Jones"],
   "journal": "AI Research Journal",
-  "year": 2025,
+  "year": 2026,
   "doi": "10.1234/example",
-  "url": "https://journal.example.com/paper"
+  "url": "https://journal.example.com/paper",
+  "abstract": "This paper explores...",
+  "keywords": ["machine learning", "neural networks", "AI"]
+}
+```
+
+**Get All Publications**
+
+**Endpoint:** `GET /api/researcher/publications`
+
+**Update Publication**
+
+**Endpoint:** `PUT /api/researcher/publications/:id`
+
+**Delete Publication**
+
+**Endpoint:** `DELETE /api/researcher/publications/:id`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Publication deleted successfully",
+  "data": null
 }
 ```
 
@@ -1418,8 +2280,9 @@ const { data: personaData } = await personaResponse.json();
 token = personaData.token;  // Use updated token
 
 // Now you can access resources
-const resources = await fetch('http://localhost:3000/api/resource
-const token = data.token;
+const resources = await fetch('http://localhost:3000/api/resources', {
+  headers: { 'Authorization': `Bearer ${token}` }
+}).then(res => res.json());
 
 // Get bookmarks
 const bookmarks = await fetch('http://localhost:3000/api/bookmarks', {
