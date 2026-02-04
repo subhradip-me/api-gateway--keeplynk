@@ -118,6 +118,7 @@ class OrganiseService {
         existingTitle: meta.title || resource.title || resource.name,
         existingDescription: meta.description,
         needs: needs,
+        userId: resource.userId.toString(),
         persona: resource.persona || 'developer'
       };
 
@@ -214,6 +215,48 @@ class OrganiseService {
         
         if (tagNames.length > 0) {
           updates.tagNames = tagNames; // Store tag names temporarily for processing
+        }
+      }
+
+      // Folder/Category: Create folder if category exists and resource is in "Uncategorised"
+      if (memory.category && memory.category.trim() !== '') {
+        const Folder = (await import('../../core/models/Folder.js')).default;
+        
+        // Check if resource is in "Uncategorised" folder or has no folder
+        let shouldCreateFolder = !resource.folderId;
+        
+        if (resource.folderId) {
+          const currentFolder = await Folder.findById(resource.folderId);
+          if (currentFolder && (currentFolder.name === 'Uncategorised' || currentFolder.name === 'Uncategorized')) {
+            shouldCreateFolder = true;
+          }
+        }
+        
+        if (shouldCreateFolder) {
+          // Check if folder with this category name already exists
+          let folder = await Folder.findOne({
+            userId: resource.userId,
+            persona: resource.persona,
+            name: memory.category.trim()
+          });
+          
+          if (!folder) {
+            // Create new folder with AI-suggested category
+            const folderColor = this.getColorForTag(memory.category); // Reuse color logic
+            folder = await Folder.create({
+              userId: resource.userId,
+              persona: resource.persona,
+              name: memory.category.trim(),
+              description: `AI-organized folder for ${memory.category}`,
+              color: folderColor,
+              icon: 'folder',
+              isDefault: false
+            });
+            console.log(`[ApplyAiResult] Created new folder "${memory.category}" with color ${folderColor}`);
+          }
+          
+          updates.folderId = folder._id;
+          updates.categoryName = memory.category.trim(); // Store for logging
         }
       }
 
@@ -366,6 +409,12 @@ class OrganiseService {
           
           updates.tags = tagIds;
           delete updates.tagNames;
+        }
+
+        // Clean up temporary fields before saving
+        if (updates.categoryName) {
+          console.log(`[ProcessResource] Assigned to folder: ${updates.categoryName}`);
+          delete updates.categoryName; // Don't save this to resource
         }
 
         // STEP 5: Save to database
