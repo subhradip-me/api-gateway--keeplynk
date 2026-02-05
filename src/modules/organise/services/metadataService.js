@@ -41,10 +41,30 @@ class MetadataService {
       const metaDescription = $('meta[name="description"]').attr('content');
       const pageTitle = $('title').text().trim();
 
+      // Extract page content for AI analysis
+      // Remove script, style, nav, footer, and other non-content elements
+      $('script, style, nav, footer, header, aside, iframe, noscript').remove();
+      
+      // Get main content (prioritize article, main, or body)
+      let contentText = '';
+      const mainContent = $('article, main, [role="main"]');
+      if (mainContent.length > 0) {
+        contentText = mainContent.text();
+      } else {
+        contentText = $('body').text();
+      }
+      
+      // Clean and limit content (first 2000 characters for AI analysis)
+      contentText = contentText
+        .replace(/\s+/g, ' ')  // Normalize whitespace
+        .trim()
+        .substring(0, 2000);  // Limit length for AI processing
+
       return {
         title: ogTitle?.trim() || pageTitle || null,
         description: ogDescription?.trim() || metaDescription?.trim() || null,
-        image: ogImage || null
+        image: ogImage || null,
+        content: contentText || null  // Add content for AI analysis
       };
     } catch (error) {
       console.error(`Failed to fetch metadata for ${url}:`, error.message);

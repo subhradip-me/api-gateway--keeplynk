@@ -117,6 +117,7 @@ class OrganiseService {
         type: resource.type || 'url',
         existingTitle: meta.title || resource.title || resource.name,
         existingDescription: meta.description,
+        content: meta.content || null,  // Pass actual page content for AI analysis
         needs: needs,
         userId: resource.userId.toString(),
         persona: resource.persona || 'developer'
@@ -532,10 +533,13 @@ class OrganiseService {
       // This is the PRIMARY source, metadata is just fallback
       console.log(`[ExtractUrlMetadata] Calling AI Engine at ${this.aiEngineUrl}/agent/resource/enrich`);
       
-      // Simple payload - let AI Engine decide everything (like Auto Organise)
+      // Pass content to AI for better analysis
       const aiPayload = {
         resourceId: 'temp-form-fill',
         url: url,
+        existingTitle: meta.title,
+        existingDescription: meta.description,
+        content: meta.content,  // Pass actual page content for AI analysis
         persona: persona || 'student',
         userId: userId
       };
