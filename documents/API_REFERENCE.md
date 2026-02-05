@@ -1106,6 +1106,8 @@ No Content
 
 The Auto-Organise feature uses AI to automatically categorize and organize your unorganized resources. All endpoints require authentication and an active persona.
 
+**User-Specific Memory:** The AI engine maintains user-specific categories and tags. When organizing resources, it intelligently reuses existing categories/tags or creates new ones based on your personal organization history. This ensures consistent categorization across your resources.
+
 ### Auto-Organise Resources
 
 Trigger auto-organisation for unorganized resources. This endpoint returns immediately while processing happens asynchronously in the background.
@@ -1182,33 +1184,45 @@ Extract metadata from a URL for auto-filling resource forms using AI.
 ```json
 {
   "success": true,
-  "message": "Metadata extracted successfully",
   "data": {
     "title": "Complete Guide to JavaScript",
     "description": "Learn JavaScript from basics to advanced concepts",
-    "suggestedTags": ["javascript", "programming", "tutorial"],
-    "suggestedFolder": "Programming Resources",
-    "favicon": "https://example.com/favicon.ico",
-    "thumbnail": "https://example.com/og-image.jpg",
-    "metadata": {
-      "siteName": "Example Tech Blog",
-      "author": "John Doe",
-      "publishedDate": "2025-01-15T00:00:00.000Z",
-      "readTime": 8
-    }
+    "tags": ["javascript", "programming", "tutorial"],
+    "category": "Programming Resources"
   }
 }
 ```
+
+**How It Works:**
+1. **URL Analysis**: Fetches and analyzes the webpage content
+2. **AI Processing**: Sends to AI engine with your userId for personalized suggestions
+3. **Category Reuse**: Checks your existing categories and reuses matching ones
+4. **Tag Reuse**: Checks your existing tags and reuses matching ones
+5. **Smart Creation**: Only creates new categories/tags if no match exists
+
+**User-Specific Behavior:**
+- Categories are **reused** if you've used similar ones before (e.g., "Programming", "Code", "Development" might all map to your existing "Programming" category)
+- Tags are **normalized and reused** to maintain consistency
+- Each user has their own category/tag memory, isolated from other users
 
 **Error Response (400):**
 ```json
 {
   "success": false,
-  "message": "Invalid URL provided"
+  "message": "URL is required"
 }
 ```
 
-**Note:** This endpoint is useful for pre-filling forms when users add new bookmarks. It analyzes the URL content and suggests appropriate metadata.
+**Error Response (500):**
+```json
+{
+  "success": false,
+  "message": "Failed to extract metadata",
+  "error": "Connection to AI engine failed"
+}
+```
+
+**Note:** This endpoint is useful for pre-filling forms when users add new bookmarks. It analyzes the URL content and suggests appropriate metadata based on your personal organization patterns.
 
 ---
 
@@ -1230,24 +1244,38 @@ Extract metadata from an uploaded document file for auto-filling resource forms 
 {
   "success": true,
   "data": {
-    "title": "Research Paper on Machine Learning",
     "description": "Comprehensive study on neural networks",
-    "suggestedTags": ["machine-learning", "AI", "research"],
-    "suggestedFolder": "Research Documents",
-    "metadata": {
-      "author": "Dr. Jane Smith",
-      "pageCount": 45,
-      "keywords": ["neural networks", "deep learning"]
-    }
+    "tags": ["machine-learning", "AI", "research"],
+    "category": "Research Documents"
   }
 }
 ```
+
+**How It Works:**
+1. **Document Analysis**: Extracts text and metadata from the uploaded file
+2. **AI Processing**: Sends to AI engine with your userId for personalized suggestions
+3. **Category/Tag Reuse**: Uses your existing organization patterns
+4. **Smart Suggestions**: Provides relevant metadata based on document content
+
+**User-Specific Behavior:**
+- Uses your personal category and tag history for consistency
+- Reuses existing categories/tags when appropriate
+- Creates new ones only when necessary
 
 **Error Response (400):**
 ```json
 {
   "success": false,
   "message": "File is required"
+}
+```
+
+**Error Response (500):**
+```json
+{
+  "success": false,
+  "message": "Failed to extract document metadata",
+  "error": "AI processing failed"
 }
 ```
 

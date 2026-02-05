@@ -512,9 +512,10 @@ class OrganiseService {
    * 
    * @param {string} url - URL to extract metadata from
    * @param {string} persona - User persona for context
+   * @param {string} userId - User ID for personalized memory
    * @returns {Promise<Object>} Extracted metadata
    */
-  async extractUrlMetadata(url, persona) {
+  async extractUrlMetadata(url, persona, userId) {
     try {
       console.log(`[ExtractUrlMetadata] Starting for URL: ${url}`);
 
@@ -535,7 +536,8 @@ class OrganiseService {
       const aiPayload = {
         resourceId: 'temp-form-fill',
         url: url,
-        persona: persona || 'student'
+        persona: persona || 'student',
+        userId: userId
       };
       
       console.log(`[ExtractUrlMetadata] AI Engine payload:`, JSON.stringify(aiPayload, null, 2));
@@ -589,9 +591,10 @@ class OrganiseService {
    * 
    * @param {Object} file - Multer file object
    * @param {string} persona - User persona for context
+   * @param {string} userId - User ID for personalized memory
    * @returns {Promise<Object>} Extracted metadata
    */
-  async extractDocumentMetadata(file, persona) {
+  async extractDocumentMetadata(file, persona, userId) {
     try {
       console.log(`[ExtractDocumentMetadata] Starting for file: ${file.originalname}`);
 
@@ -611,6 +614,7 @@ class OrganiseService {
         });
         formData.append('persona', persona || 'student');
         formData.append('type', 'document');
+        formData.append('userId', userId);
 
         const aiResponse = await axios.post(
           `${this.aiEngineUrl}/agent/document/analyze`,

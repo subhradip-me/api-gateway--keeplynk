@@ -98,6 +98,7 @@ class OrganiseController {
     try {
       const { url } = req.body;
       const persona = req.personaContext.persona;
+      const userId = req.personaContext.userId;
 
       if (!url) {
         return res.status(400).json({
@@ -108,7 +109,7 @@ class OrganiseController {
 
       console.log('[ExtractMetadata] Processing URL:', url);
 
-      const metadata = await organiseService.extractUrlMetadata(url, persona);
+      const metadata = await organiseService.extractUrlMetadata(url, persona, userId);
 
       res.json({
         success: true,
@@ -133,6 +134,7 @@ class OrganiseController {
     try {
       const file = req.file;
       const persona = req.personaContext.persona;
+      const userId = req.personaContext.userId;
 
       if (!file) {
         return res.status(400).json({
@@ -143,7 +145,7 @@ class OrganiseController {
 
       console.log('[ExtractDocumentMetadata] Processing file:', file.originalname);
 
-      const metadata = await organiseService.extractDocumentMetadata(file, persona);
+      const metadata = await organiseService.extractDocumentMetadata(file, persona, userId);
 
       res.json({
         success: true,
