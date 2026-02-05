@@ -2,6 +2,7 @@
 import axios from 'axios';
 import Resource from '../../core/models/Resource.js';
 import metadataService from './metadataService.js';
+import FolderService from '../../core/services/folderService.js';
 
 /**
  * Auto Organise Service
@@ -111,6 +112,18 @@ class OrganiseService {
    */
   async callAiEngine(resource, meta, needs) {
     try {
+      // Fetch user's existing folders to send to AI for intelligent reuse
+      let existingFolders = [];
+      try {
+        const folders = await FolderService.getAll(resource.userId.toString(), resource.persona);
+        existingFolders = folders
+          .filter(f => !f.isDefault) // Exclude default "Uncategorized" folder
+          .map(f => f.name);
+        console.log(`[AI Engine] User has ${existingFolders.length} existing folders:`, existingFolders);
+      } catch (error) {
+        console.error('[AI Engine] Failed to fetch folders:', error.message);
+      }
+
       const payload = {
         resourceId: resource._id.toString(),
         url: resource.url || null,
@@ -118,6 +131,7 @@ class OrganiseService {
         existingTitle: meta.title || resource.title || resource.name,
         existingDescription: meta.description,
         content: meta.content || null,  // Pass actual page content for AI analysis
+        existingFolders: existingFolders,  // Send user's existing folder names
         needs: needs,
         userId: resource.userId.toString(),
         persona: resource.persona || 'developer'
@@ -533,6 +547,18 @@ class OrganiseService {
       // This is the PRIMARY source, metadata is just fallback
       console.log(`[ExtractUrlMetadata] Calling AI Engine at ${this.aiEngineUrl}/agent/resource/enrich`);
       
+      // Fetch user's existing folders
+      let existingFolders = [];
+      try {
+        const folders = await FolderService.getAll(userId, persona);
+        existingFolders = folders
+          .filter(f => !f.isDefault) // Exclude default \"Uncategorized\" folder
+          .map(f => f.name);
+        console.log(`[ExtractUrlMetadata] User has ${existingFolders.length} existing folders:`, existingFolders);
+      } catch (error) {
+        console.error('[ExtractUrlMetadata] Failed to fetch folders:', error.message);
+      }
+      
       // Pass content to AI for better analysis
       const aiPayload = {
         resourceId: 'temp-form-fill',
@@ -540,6 +566,7 @@ class OrganiseService {
         existingTitle: meta.title,
         existingDescription: meta.description,
         content: meta.content,  // Pass actual page content for AI analysis
+        existingFolders: existingFolders,  // Send user's existing folder names
         persona: persona || 'student',
         userId: userId
       };
@@ -609,6 +636,18 @@ class OrganiseService {
 
       // STEP 1: Try AI Engine for intelligent extraction
       try {
+        // Fetch user's existing folders
+        let existingFolders = [];
+        try {
+          const folders = await FolderService.getAll(userId, persona);
+          existingFolders = folders
+            .filter(f => !f.isDefault) // Exclude default \"Uncategorized\" folder
+            .map(f => f.name);
+          console.log(`[ExtractDocumentMetadata] User has ${existingFolders.length} existing folders:`, existingFolders);
+        } catch (error) {
+          console.error('[ExtractDocumentMetadata] Failed to fetch folders:', error.message);
+        }
+
         // Send file to AI Engine for analysis
         const FormData = (await import('form-data')).default;
         const formData = new FormData();
@@ -619,6 +658,7 @@ class OrganiseService {
         formData.append('persona', persona || 'student');
         formData.append('type', 'document');
         formData.append('userId', userId);
+        formData.append('existingFolders', JSON.stringify(existingFolders)); // Send existing folders
 
         const aiResponse = await axios.post(
           `${this.aiEngineUrl}/agent/document/analyze`,
