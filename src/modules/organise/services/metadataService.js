@@ -81,7 +81,7 @@ class MetadataService {
    * This is the SMART FILTER that saves AI cost
    * @param {Object} resource - The resource document
    * @param {Object} meta - Fetched metadata
-   * @returns {{title: boolean, description: boolean, tags: boolean}}
+   * @returns {{title: boolean, description: boolean, tags: boolean, category: boolean}}
    */
   decideAiNeeds(resource, meta) {
     return {
@@ -92,7 +92,10 @@ class MetadataService {
       description: !meta.description,
       
       // Always ask AI for tags (this is what AI is good at)
-      tags: true
+      tags: true,
+      
+      // Always ask AI for category/folder (for smart organization)
+      category: true
     };
   }
 }
