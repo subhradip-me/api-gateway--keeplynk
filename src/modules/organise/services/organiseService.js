@@ -233,46 +233,9 @@ class OrganiseService {
         }
       }
 
-      // Folder/Category: Create folder if category exists and resource is in "Uncategorised"
-      if (memory.category && memory.category.trim() !== '') {
-        const Folder = (await import('../../core/models/Folder.js')).default;
-        
-        // Check if resource is in "Uncategorised" folder or has no folder
-        let shouldCreateFolder = !resource.folderId;
-        
-        if (resource.folderId) {
-          const currentFolder = await Folder.findById(resource.folderId);
-          if (currentFolder && (currentFolder.name === 'Uncategorised' || currentFolder.name === 'Uncategorized')) {
-            shouldCreateFolder = true;
-          }
-        }
-        
-        if (shouldCreateFolder) {
-          // Check if folder with this category name already exists
-          let folder = await Folder.findOne({
-            userId: resource.userId,
-            persona: resource.persona,
-            name: memory.category.trim()
-          });
-          
-          if (!folder) {
-            // Create new folder with AI-suggested category
-            const folderColor = this.getColorForTag(memory.category); // Reuse color logic
-            folder = await Folder.create({
-              userId: resource.userId,
-              persona: resource.persona,
-              name: memory.category.trim(),
-              description: `AI-organized folder for ${memory.category}`,
-              color: folderColor,
-              icon: 'folder',
-              isDefault: false
-            });
-            console.log(`[ApplyAiResult] Created new folder "${memory.category}" with color ${folderColor}`);
-          }
-          
-          updates.folderId = folder._id;
-          updates.categoryName = memory.category.trim(); // Store for logging
-        }
+      // Category: Pass category forward for folder assignment in processResource
+      if (memory.category && !resource.folderId) {
+        updates.category = memory.category.trim();
       }
 
       console.log(`[ApplyAiResult] Generated updates:`, updates);
@@ -426,10 +389,36 @@ class OrganiseService {
           delete updates.tagNames;
         }
 
-        // Clean up temporary fields before saving
-        if (updates.categoryName) {
-          console.log(`[ProcessResource] Assigned to folder: ${updates.categoryName}`);
-          delete updates.categoryName; // Don't save this to resource
+        // STEP: Resolve folder from category (THIS is the brain 🧠)
+        if (updates.category && !resource.folderId) {
+          const Folder = (await import('../../core/models/Folder.js')).default;
+
+          const folderName = updates.category;
+
+          let folder = await Folder.findOne({
+            userId: resource.userId,
+            persona: resource.persona,
+            name: folderName
+          });
+
+          if (!folder) {
+            const folderColor = this.getColorForTag(folderName);
+            folder = await Folder.create({
+              userId: resource.userId,
+              persona: resource.persona,
+              name: folderName,
+              description: `AI-organized folder for ${folderName}`,
+              color: folderColor,
+              icon: 'folder',
+              isDefault: false
+            });
+
+            console.log(`[ProcessResource] Created new folder "${folderName}"`);
+          }
+
+          updates.folderId = folder._id;
+          console.log(`[ProcessResource] Assigned to folder: ${folderName}`);
+          delete updates.category;
         }
 
         // STEP 5: Save to database
