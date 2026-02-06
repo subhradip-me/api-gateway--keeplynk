@@ -234,7 +234,8 @@ class OrganiseService {
       }
 
       // Category: Pass category forward for folder assignment in processResource
-      if (memory.category && !resource.folderId) {
+      // Always pass category if AI suggests one (processResource will check if move is needed)
+      if (memory.category) {
         updates.category = memory.category.trim();
       }
 
@@ -390,34 +391,50 @@ class OrganiseService {
         }
 
         // STEP: Resolve folder from category (THIS is the brain 🧠)
-        if (updates.category && !resource.folderId) {
+        if (updates.category) {
           const Folder = (await import('../../core/models/Folder.js')).default;
 
-          const folderName = updates.category;
-
-          let folder = await Folder.findOne({
-            userId: resource.userId,
-            persona: resource.persona,
-            name: folderName
-          });
-
-          if (!folder) {
-            const folderColor = this.getColorForTag(folderName);
-            folder = await Folder.create({
-              userId: resource.userId,
-              persona: resource.persona,
-              name: folderName,
-              description: `AI-organized folder for ${folderName}`,
-              color: folderColor,
-              icon: 'folder',
-              isDefault: false
-            });
-
-            console.log(`[ProcessResource] Created new folder "${folderName}"`);
+          // Check if resource is currently in Uncategorized folder
+          let shouldMoveFolder = false;
+          if (!resource.folderId) {
+            shouldMoveFolder = true;
+          } else {
+            const currentFolder = await Folder.findById(resource.folderId);
+            if (currentFolder && (currentFolder.name === 'Uncategorized' || currentFolder.name === 'Uncategorised')) {
+              shouldMoveFolder = true;
+            }
           }
 
-          updates.folderId = folder._id;
-          console.log(`[ProcessResource] Assigned to folder: ${folderName}`);
+          if (shouldMoveFolder) {
+            const folderName = updates.category;
+
+            let folder = await Folder.findOne({
+              userId: resource.userId,
+              persona: resource.persona,
+              name: folderName
+            });
+
+            if (!folder) {
+              const folderColor = this.getColorForTag(folderName);
+              folder = await Folder.create({
+                userId: resource.userId,
+                persona: resource.persona,
+                name: folderName,
+                description: `AI-organized folder for ${folderName}`,
+                color: folderColor,
+                icon: 'folder',
+                isDefault: false
+              });
+
+              console.log(`[ProcessResource] Created new folder "${folderName}"`);
+            }
+
+            updates.folderId = folder._id;
+            console.log(`[ProcessResource] Moving from Uncategorized to folder: ${folderName}`);
+          } else {
+            console.log(`[ProcessResource] Resource already in organized folder, not moving`);
+          }
+          
           delete updates.category;
         }
 
