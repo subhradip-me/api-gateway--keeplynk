@@ -35,8 +35,8 @@ class ResourceService {
   }
 
   static async create(userId, persona, resourceData) {
-    // If no title provided and URL exists, fetch title from metadata
-    if (!resourceData.title && resourceData.url && resourceData.type !== 'document') {
+    // If no title provided (null/undefined/empty/"Untitled") and URL exists, fetch title from metadata
+    if ((!resourceData.title || resourceData.title === 'Untitled') && resourceData.url && resourceData.type !== 'document') {
       try {
         console.log(`📡 No title provided, fetching from metadata for: ${resourceData.url}`);
         const metadata = await metadataService.fetchMetadata(resourceData.url);
@@ -56,7 +56,7 @@ class ResourceService {
     }
 
     // If still no title (e.g., document without title), generate a default
-    if (!resourceData.title) {
+    if (!resourceData.title || resourceData.title === 'Untitled') {
       if (resourceData.type === 'document' && resourceData.fileName) {
         resourceData.title = resourceData.fileName;
       } else {
