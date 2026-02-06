@@ -2,6 +2,7 @@ import Resource from '../models/Resource.js';
 import Tag from '../models/Tag.js';
 import FolderService from './folderService.js';
 import PersonaDataService from '../../shared/services/PersonaDataService.js';
+import metadataService from '../../organise/services/metadataService.js';
 
 class ResourceService {
   // Vibrant color palette for AI-assigned tags
@@ -34,6 +35,35 @@ class ResourceService {
   }
 
   static async create(userId, persona, resourceData) {
+    // If no title provided and URL exists, fetch title from metadata
+    if (!resourceData.title && resourceData.url && resourceData.type !== 'document') {
+      try {
+        console.log(`📡 No title provided, fetching from metadata for: ${resourceData.url}`);
+        const metadata = await metadataService.fetchMetadata(resourceData.url);
+        if (metadata.title) {
+          resourceData.title = metadata.title;
+          console.log(`✅ Fetched title from metadata: ${metadata.title}`);
+        } else {
+          // Fallback: use URL as title if metadata extraction fails
+          resourceData.title = resourceData.url;
+          console.log(`⚠️ No metadata title found, using URL as title`);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to fetch metadata for title:`, error.message);
+        // Fallback: use URL as title
+        resourceData.title = resourceData.url;
+      }
+    }
+
+    // If still no title (e.g., document without title), generate a default
+    if (!resourceData.title) {
+      if (resourceData.type === 'document' && resourceData.fileName) {
+        resourceData.title = resourceData.fileName;
+      } else {
+        resourceData.title = `Untitled Resource ${Date.now()}`;
+      }
+    }
+
     // If no folderId provided, use default folder
     if (!resourceData.folderId) {
       const defaultFolder = await FolderService.getOrCreateDefaultFolder(userId, persona);
