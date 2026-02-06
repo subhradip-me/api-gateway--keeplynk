@@ -62,6 +62,17 @@ class OrganiseService {
    */
   async findUnorganisedResources(userId, persona, limit = 50) {
     try {
+      // First, get the Uncategorized folder ID
+      const Folder = (await import('../../core/models/Folder.js')).default;
+      const uncategorizedFolder = await Folder.findOne({
+        userId,
+        persona,
+        $or: [
+          { name: 'Uncategorized' },
+          { name: 'Uncategorised' }
+        ]
+      });
+
       const query = {
         userId,
         persona,
@@ -75,7 +86,9 @@ class OrganiseService {
           { tags: { $exists: false } },
           { tags: null },
           { tags: [] },
-          { tags: { $size: 0 } }
+          { tags: { $size: 0 } },
+          // OR in Uncategorized folder (needs better organization)
+          ...(uncategorizedFolder ? [{ folderId: uncategorizedFolder._id }] : [])
         ]
       };
       
