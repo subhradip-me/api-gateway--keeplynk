@@ -21,6 +21,18 @@ class MetadataService {
         return { title: null, description: null, image: null };
       }
 
+      // Check if this is a video URL - let AI Engine's TranscriptSkill handle video content
+      const isVideoUrl = this.isVideoUrl(url);
+      if (isVideoUrl) {
+        console.log(`[MetadataService] Video URL detected: ${url}, skipping content extraction`);
+        return {
+          title: null,
+          description: null,
+          image: null,
+          content: null // Let TranscriptSkill handle video content
+        };
+      }
+
       const response = await axios.get(url, {
         timeout: 5000,
         headers: {
@@ -97,6 +109,28 @@ class MetadataService {
       // Always ask AI for category/folder (for smart organization)
       category: true
     };
+  }
+
+  /**
+   * Check if URL is a video platform URL
+   * @param {string} url - URL to check
+   * @returns {boolean} True if it's a video URL
+   */
+  isVideoUrl(url) {
+    const videoPatterns = [
+      /youtube\.com\/watch/i,
+      /youtu\.be\//i,
+      /vimeo\.com\/\d+/i,
+      /dailymotion\.com\/video/i,
+      /twitch\.tv\/videos/i,
+      /facebook\.com\/.+\/videos/i,
+      /instagram\.com\/p\/.+/i,
+      /tiktok\.com\/.+\/video/i,
+      /twitter\.com\/.+\/status/i,
+      /x\.com\/.+\/status/i
+    ];
+    
+    return videoPatterns.some(pattern => pattern.test(url));
   }
 }
 
