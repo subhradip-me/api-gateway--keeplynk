@@ -88,8 +88,8 @@ class MetadataService {
       // Only ask AI for title if metadata didn't give us a good one
       title: !meta.title || meta.title.length < 5,
       
-      // Only ask AI for description if metadata didn't provide one
-      description: !meta.description,
+      // Always ask AI for description (AI generates better descriptions)
+      description: true,
       
       // Always ask AI for tags (this is what AI is good at)
       tags: true,
