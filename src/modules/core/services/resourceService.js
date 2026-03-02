@@ -1,5 +1,6 @@
 import Resource from '../models/Resource.js';
 import Tag from '../models/Tag.js';
+import Folder from '../models/Folder.js';
 import FolderService from './folderService.js';
 import PersonaDataService from '../../shared/services/PersonaDataService.js';
 import metadataService from '../../organise/services/metadataService.js';
@@ -149,9 +150,27 @@ class ResourceService {
 
   static async getAll(userId, persona, filters = {}) {
     const query = PersonaDataService.buildPersonaQuery(userId, persona, filters);
-    return await Resource.find(query)
+    
+    // Get all resources
+    const resources = await Resource.find(query)
       .populate('tags', 'name color')
+      .populate('folderId', 'isTrashed')
       .sort({ createdAt: -1 });
+    
+    // Apply folder invariant: resource is effectively trashed if folder is trashed
+    return resources.map(resource => {
+      const resourceObj = resource.toObject();
+      
+      // If resource has a folder and that folder is trashed,
+      // treat the resource as trashed regardless of its own isTrashed status
+      if (resource.folderId && resource.folderId.isTrashed) {
+        resourceObj.effectivelyTrashed = true;
+      } else {
+        resourceObj.effectivelyTrashed = resource.isTrashed;
+      }
+      
+      return resourceObj;
+    });
   }
 
   static async getById(userId, persona, resourceId) {
@@ -238,7 +257,10 @@ class ResourceService {
   static async moveToTrash(userId, persona, resourceId) {
     const resource = await Resource.findOneAndUpdate(
       PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId }),
-      { isTrashed: true },
+      { 
+        isTrashed: true,
+        deletedAt: new Date()
+      },
       { new: true }
     );
     if (!resource) {
@@ -248,15 +270,60 @@ class ResourceService {
   }
 
   static async restoreFromTrash(userId, persona, resourceId) {
-    const resource = await Resource.findOneAndUpdate(
+    const resource = await Resource.findOne(
+      PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId, isTrashed: true })
+    );
+    
+    if (!resource) {
+      throw new Error('Resource not found or not in trash');
+    }
+    
+    // Check if the resource's folder is still trashed
+    let targetFolderId = resource.folderId;
+    
+    if (resource.folderId) {
+      const folder = await Folder.findOne({
+        _id: resource.folderId,
+        userId,
+        persona
+      });
+      
+      // If folder is trashed, move resource to root (folderId = null)
+      // Option B: Move to root folder for cleaner architecture
+      if (folder && folder.isTrashed) {
+        targetFolderId = null;
+      }
+    }
+    
+    const updatedResource = await Resource.findOneAndUpdate(
       PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId }),
-      { isTrashed: false },
+      { 
+        isTrashed: false,
+        deletedAt: null,
+        folderId: targetFolderId
+      },
       { new: true }
     );
+    
+    return updatedResource;
+  }
+
+  static async hardDelete(userId, persona, resourceId) {
+    // Hard delete can only be performed on trashed resources
+    const resource = await Resource.findOne(
+      PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId, isTrashed: true })
+    );
+    
     if (!resource) {
-      throw new Error('Resource not found');
+      throw new Error('Resource not found or not in trash. Hard delete only allowed for trashed resources.');
     }
-    return resource;
+    
+    // Hard delete the resource permanently
+    await Resource.findOneAndDelete(
+      PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId })
+    );
+    
+    return { message: 'Resource permanently deleted' };
   }
 }
 

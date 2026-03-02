@@ -42,11 +42,21 @@ class FolderService {
     // Get resource counts for each folder
     const foldersWithCounts = await Promise.all(
       folders.map(async (folder) => {
-        const resourceCount = await Resource.countDocuments({
+        // Count only non-trashed resources for active folders
+        // For trashed folders, count all resources (to show what will be affected)
+        const resourceCountQuery = {
           userId,
           persona,
           folderId: folder._id
-        });
+        };
+        
+        // If folder is not trashed, only count non-trashed resources
+        if (!folder.isTrashed) {
+          resourceCountQuery.isTrashed = { $ne: true };
+        }
+        
+        const resourceCount = await Resource.countDocuments(resourceCountQuery);
+        
         return {
           ...folder.toObject(),
           resourceCount
@@ -83,23 +93,84 @@ class FolderService {
     return folder;
   }
 
-  static async delete(userId, persona, folderId) {
-    const folder = await Folder.findOneAndDelete(
-      PersonaDataService.buildPersonaQuery(userId, persona, { _id: folderId })
+  static async moveToTrash(userId, persona, folderId) {
+    const folder = await Folder.findOneAndUpdate(
+      PersonaDataService.buildPersonaQuery(userId, persona, { _id: folderId }),
+      { 
+        isTrashed: true,
+        deletedAt: new Date()
+      },
+      { new: true }
     );
     
     if (!folder) {
       throw new Error('Folder not found');
     }
     
-    // Move all resources from deleted folder to default folder
-    const defaultFolder = await this.getOrCreateDefaultFolder(userId, persona);
+    // Bulk update all resources in this folder to be trashed
     await Resource.updateMany(
       { userId, persona, folderId },
-      { $set: { folderId: defaultFolder._id } }
+      { 
+        $set: { 
+          isTrashed: true,
+          deletedAt: new Date()
+        } 
+      }
     );
     
     return folder;
+  }
+
+  static async restoreFromTrash(userId, persona, folderId) {
+    const folder = await Folder.findOneAndUpdate(
+      PersonaDataService.buildPersonaQuery(userId, persona, { _id: folderId, isTrashed: true }),
+      { 
+        isTrashed: false,
+        deletedAt: null
+      },
+      { new: true }
+    );
+    
+    if (!folder) {
+      throw new Error('Folder not found or not in trash');
+    }
+    
+    // Restore all resources inside this folder that were trashed
+    // We only restore resources that are currently trashed
+    await Resource.updateMany(
+      { userId, persona, folderId, isTrashed: true },
+      { 
+        $set: { 
+          isTrashed: false,
+          deletedAt: null
+        } 
+      }
+    );
+    
+    return folder;
+  }
+
+  static async hardDelete(userId, persona, folderId) {
+    // Hard delete can only be performed on trashed folders
+    const folder = await Folder.findOne(
+      PersonaDataService.buildPersonaQuery(userId, persona, { _id: folderId, isTrashed: true })
+    );
+    
+    if (!folder) {
+      throw new Error('Folder not found or not in trash. Hard delete only allowed for trashed folders.');
+    }
+    
+    // Hard delete all resources in this folder permanently
+    await Resource.deleteMany(
+      { userId, persona, folderId }
+    );
+    
+    // Hard delete the folder permanently
+    await Folder.findOneAndDelete(
+      PersonaDataService.buildPersonaQuery(userId, persona, { _id: folderId })
+    );
+    
+    return { message: 'Folder and all contents permanently deleted' };
   }
 }
 

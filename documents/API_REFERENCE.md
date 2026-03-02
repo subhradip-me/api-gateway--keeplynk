@@ -149,6 +149,65 @@ Access to XMLHttpRequest has been blocked by CORS policy
 
 ---
 
+## Soft Delete System
+
+KeepLynk implements a comprehensive soft delete system with clear rules and invariants to ensure data integrity.
+
+### Core Concepts
+
+**1. Independent Soft Delete Flags**
+Every entity (Folder, Resource) has:
+```json
+{
+  "isTrashed": Boolean,
+  "deletedAt": Date | null
+}
+```
+
+**2. Folder Invariant (Golden Rule)**
+A resource cannot be active if its parent folder is trashed. This means:
+- Even if `resource.isTrashed = false`
+- If `folder.isTrashed = true`
+- → UI must treat resource as trashed (`effectivelyTrashed: true`)
+
+**3. Soft Delete Operations**
+
+| Operation | Endpoint | Effect |
+|-----------|----------|--------|
+| Soft Delete Folder | `PATCH /folders/:id/trash` | Sets `folder.isTrashed = true` AND bulk updates all resources in folder to `isTrashed = true` |
+| Restore Folder | `PATCH /folders/:id/restore` | Sets `folder.isTrashed = false` AND restores all resources that were trashed because of folder |
+| Soft Delete Resource | `PATCH /resources/:id/trash` | Sets `resource.isTrashed = true` only |
+| Restore Resource | `PATCH /resources/:id/restore` | If folder still trashed → moves resource to root (`folderId = null`), otherwise restores normally |
+
+**4. Hard Delete Rules**
+- Hard delete only allowed when entity is already trashed
+- Folder hard delete: Deletes folder + all resources inside permanently
+- Resource hard delete: Deletes individual resource permanently
+- **These operations cannot be undone**
+
+### Response Fields
+
+When retrieving resources, responses include:
+```json
+{
+  "_id": "...",
+  "title": "Resource Title",
+  "isTrashed": false,
+  "deletedAt": null,
+  "effectivelyTrashed": true,  // true if folder is trashed
+  "folderId": "folder_id_or_null"
+}
+```
+
+### Best Practices
+
+1. **Always check `effectivelyTrashed`** in UI, not just `isTrashed`
+2. **Use soft delete first** - only hard delete when sure
+3. **Folder operations affect all contents** - be careful with bulk operations
+4. **Selective restore moves to root** - maintains data integrity
+
+---
+
 ## Authentication Endpoints
 
 ### Register User
@@ -855,33 +914,7 @@ Update an existing resource.
 
 ---
 
-### Delete Resource
-
-Delete a resource.
-
-**Endpoint:** `DELETE /api/resources/:id`
-
-**Access:** Protected (with Persona Context - **Persona Required**)
-
-**Path Parameters:**
-- `id` - Resource ID
-
-**Success Response (204):**
-```
-No Content
-```
-
-**Error Response (404):**
-```json
-{
-  "success": false,
-  "message": "Resource not found"
-}
-```
-
----
-
-### Move Resource to Trash
+### Move Resource to Trash (Soft Delete)
 
 Move a resource to trash without permanently deleting it.
 
@@ -904,7 +937,8 @@ Move a resource to trash without permanently deleting it.
     "type": "url",
     "title": "Interesting Article",
     "isTrashed": true,
-    "updatedAt": "2026-02-03T19:59:30.312Z"
+    "deletedAt": "2026-03-02T10:00:00.000Z",
+    "updatedAt": "2026-03-02T10:00:00.000Z"
   }
 }
 ```
@@ -921,7 +955,7 @@ Move a resource to trash without permanently deleting it.
 
 ### Restore Resource from Trash
 
-Restore a trashed resource back to active state.
+Restore a trashed resource back to active state. If the resource's folder is still trashed, the resource will be moved to the root level (no folder).
 
 **Endpoint:** `PATCH /api/resources/:id/restore`
 
@@ -942,12 +976,56 @@ Restore a trashed resource back to active state.
     "type": "url",
     "title": "Interesting Article",
     "isTrashed": false,
-    "updatedAt": "2026-02-03T19:59:31.327Z"
+    "deletedAt": null,
+    "folderId": null, // Moved to root if original folder was trashed
+    "updatedAt": "2026-03-02T10:00:00.000Z"
   }
 }
 ```
 
-**Error Response (404):**
+**Error Response (400):**
+```json
+{
+  "success": false,
+  "message": "Resource not found or not in trash"
+}
+```
+
+**Note:** If the resource's original folder is still trashed, the resource will be moved to the root level (folderId becomes null) to maintain data consistency.
+
+---
+
+### Delete Resource Permanently (Hard Delete)
+
+Permanently delete a trashed resource. **This action cannot be undone.**
+
+**Endpoint:** `DELETE /api/resources/:id`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Path Parameters:**
+- `id` - Resource ID
+
+**Important:** This endpoint only works on resources that are already in trash (`isTrashed: true`).
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Resource permanently deleted",
+  "data": {
+    "message": "Resource permanently deleted"
+  }
+}
+```
+
+**Error Response (400):**
+```json
+{
+  "success": false,
+  "message": "Resource not found or not in trash. Hard delete only allowed for trashed resources."
+}
+```
 ```json
 {
   "success": false,
@@ -1429,9 +1507,75 @@ Update an existing folder.
 
 ---
 
-### Delete Folder
+### Move Folder to Trash (Soft Delete)
 
-Delete a folder.
+Move a folder to trash. This will also automatically move all resources in the folder to trash.
+
+**Endpoint:** `PATCH /api/folders/:id/trash`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Path Parameters:**
+- `id` - Folder ID
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Folder moved to trash successfully",
+  "data": {
+    "_id": "507f1f77bcf86cd799439013",
+    "name": "My Folder",
+    "isTrashed": true,
+    "deletedAt": "2026-03-02T10:00:00.000Z",
+    "updatedAt": "2026-03-02T10:00:00.000Z"
+  }
+}
+```
+
+**Note:** When a folder is trashed, ALL resources inside that folder are automatically trashed as well.
+
+---
+
+### Restore Folder from Trash
+
+Restore a folder from trash. This will also restore all resources that were trashed because of the folder.
+
+**Endpoint:** `PATCH /api/folders/:id/restore`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Path Parameters:**
+- `id` - Folder ID
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Folder restored from trash successfully",
+  "data": {
+    "_id": "507f1f77bcf86cd799439013",
+    "name": "My Folder",
+    "isTrashed": false,
+    "deletedAt": null,
+    "updatedAt": "2026-03-02T10:00:00.000Z"
+  }
+}
+```
+
+**Error Response (400):**
+```json
+{
+  "success": false,
+  "message": "Folder not found or not in trash"
+}
+```
+
+---
+
+### Delete Folder Permanently (Hard Delete)
+
+Permanently delete a trashed folder and all its contents. **This action cannot be undone.**
 
 **Endpoint:** `DELETE /api/folders/:id`
 
@@ -1440,16 +1584,24 @@ Delete a folder.
 **Path Parameters:**
 - `id` - Folder ID
 
-**Success Response (204):**
-```
-No Content
+**Important:** This endpoint only works on folders that are already in trash (`isTrashed: true`).
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Folder permanently deleted",
+  "data": {
+    "message": "Folder and all contents permanently deleted"
+  }
+}
 ```
 
-**Error Response (404):**
+**Error Response (400):**
 ```json
 {
   "success": false,
-  "message": "Folder not found"
+  "message": "Folder not found or not in trash. Hard delete only allowed for trashed folders."
 }
 ```
 

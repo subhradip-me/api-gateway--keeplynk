@@ -23,21 +23,22 @@ const connectDatabase = async () => {
       console.warn('MongoDB disconnected');
     });
 
-    // Graceful shutdown - only on explicit termination
-    const shutdown = async (signal) => {
-      console.log(`\nReceived ${signal}, gracefully shutting down...`);
-      await mongoose.connection.close();
-      console.log('MongoDB connection closed through app termination');
-      process.exit(0);
-    };
-    
-    process.once('SIGINT', () => shutdown('SIGINT'));
-    process.once('SIGTERM', () => shutdown('SIGTERM'));
-
   } catch (error) {
     console.error('MongoDB connection failed:', error);
     process.exit(1);
   }
 };
 
-export { connectDatabase };
+const closeDatabase = async () => {
+  try {
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close();
+      console.log('MongoDB disconnected');
+    }
+  } catch (error) {
+    console.error('Error closing MongoDB connection:', error);
+    throw error;
+  }
+};
+
+export { connectDatabase, closeDatabase };

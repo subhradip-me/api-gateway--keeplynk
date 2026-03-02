@@ -12,6 +12,8 @@ router.post('/', FolderController.create);
 router.get('/', FolderController.getAll);
 router.get('/:id', FolderController.getById);
 router.put('/:id', FolderController.update);
-router.delete('/:id', FolderController.delete);
+router.patch('/:id/trash', FolderController.moveToTrash);
+router.patch('/:id/restore', FolderController.restoreFromTrash);
+router.delete('/:id', FolderController.hardDelete);
 
 export default router;

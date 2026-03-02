@@ -73,18 +73,107 @@ const startServer = async () => {
     await connectDatabase();
     console.log('Database connected successfully');
     
-    // Start server
+    // Start server with proper error handling
     console.log('Starting HTTP server...');
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
+      console.log('Server started successfully');
       console.log(`✓ Server is running on port ${PORT}`);
       console.log(`✓ Environment: ${config.NODE_ENV}`);
       console.log(`✓ Health check: http://localhost:${PORT}/health`);
       console.log(`✓ API endpoint: http://localhost:${PORT}/api`);
     });
-    console.log('Server started successfully');
+
+    // Handle server startup errors (like EADDRINUSE)
+    server.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use`);
+        console.log('💡 Trying to find an available port...');
+        
+        // Try alternative ports
+        const alternativePorts = [3001, 3002, 3003, 8000, 8080];
+        tryAlternativePort(0, alternativePorts);
+      } else {
+        console.error('❌ Server startup error:', error.message);
+        process.exit(1);
+      }
+    });
+
+    // Graceful shutdown handlers
+    const gracefulShutdown = (signal) => {
+      console.log(`\n📴 Received ${signal}, gracefully shutting down...`);
+      
+      server.close((err) => {
+        if (err) {
+          console.error('❌ Error during server shutdown:', err);
+          process.exit(1);
+        }
+        
+        console.log('✓ HTTP server closed');
+        
+        // Close database connection
+        import('./src/modules/shared/config/database.js').then(({ closeDatabase }) => {
+          closeDatabase()
+            .then(() => {
+              console.log('✓ Database connection closed');
+              process.exit(0);
+            })
+            .catch((dbErr) => {
+              console.error('❌ Error closing database:', dbErr);
+              process.exit(1);
+            });
+        });
+      });
+      
+      // Force shutdown if graceful shutdown takes too long
+      setTimeout(() => {
+        console.error('❌ Forced shutdown - graceful shutdown timed out');
+        process.exit(1);
+      }, 10000);
+    };
+
+    // Alternative port finder function
+    const tryAlternativePort = (index, ports) => {
+      if (index >= ports.length) {
+        console.error('❌ No available ports found. Please free up some ports and try again.');
+        process.exit(1);
+        return;
+      }
+
+      const alternativePort = ports[index];
+      console.log(`🔄 Trying port ${alternativePort}...`);
+      
+      const altServer = app.listen(alternativePort, () => {
+        console.log('Server started successfully');
+        console.log(`✓ Server is running on port ${alternativePort}`);
+        console.log(`✓ Environment: ${config.NODE_ENV}`);
+        console.log(`✓ Health check: http://localhost:${alternativePort}/health`);
+        console.log(`✓ API endpoint: http://localhost:${alternativePort}/api`);
+        
+        // Setup graceful shutdown for alternative server too
+        process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+        process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+      });
+
+      altServer.on('error', (altError) => {
+        if (altError.code === 'EADDRINUSE') {
+          console.log(`❌ Port ${alternativePort} is also in use`);
+          tryAlternativePort(index + 1, ports);
+        } else {
+          console.error('❌ Server startup error:', altError.message);
+          process.exit(1);
+        }
+      });
+    };
+
+    // Setup graceful shutdown handlers
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGQUIT', () => gracefulShutdown('SIGQUIT'));
+
+    return server;
     
   } catch (error) {
-    console.error('Failed to start server:', error.message);
+    console.error('❌ Failed to start server:', error.message);
     console.error('Stack trace:', error.stack);
     process.exit(1);
   }

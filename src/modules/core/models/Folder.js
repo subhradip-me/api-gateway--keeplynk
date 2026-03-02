@@ -37,6 +37,16 @@ const folderSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  
+  isTrashed: {
+    type: Boolean,
+    default: false
+  },
+  deletedAt: {
+    type: Date,
+    default: null
+  },
+
   isShared: {
     type: Boolean,
     default: false

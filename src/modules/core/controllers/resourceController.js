@@ -219,6 +219,19 @@ class ResourceController {
       return errorResponse(res, error.message, 400);
     }
   }
+
+  static async hardDelete(req, res) {
+    try {
+      const result = await ResourceService.hardDelete(
+        req.personaContext.userId,
+        req.personaContext.persona,
+        req.params.id
+      );
+      return successResponse(res, result, 'Resource permanently deleted');
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+  }
 }
 
 export default ResourceController;

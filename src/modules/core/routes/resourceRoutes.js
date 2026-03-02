@@ -19,6 +19,6 @@ router.patch('/:id/restore', ResourceController.restoreFromTrash);
 router.get('/', ResourceController.getAll);
 router.get('/:id', ResourceController.getById);
 router.put('/:id', ResourceController.update);
-router.delete('/:id', ResourceController.delete);
+router.delete('/:id', ResourceController.hardDelete);
 
 export default router;
