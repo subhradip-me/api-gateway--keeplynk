@@ -252,6 +252,18 @@ class ResourceController {
       return errorResponse(res, error.message, 400);
     }
   }
+
+  static async getTrash(req, res) {
+    try {
+      const resources = await ResourceService.getTrash(
+        req.personaContext.userId,
+        req.personaContext.persona
+      );
+      return successResponse(res, resources, 'Trashed resources retrieved successfully');
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+  }
 }
 
 export default ResourceController;

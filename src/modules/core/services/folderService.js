@@ -37,7 +37,8 @@ class FolderService {
 
   static async getAll(userId, persona) {
     const query = PersonaDataService.buildPersonaQuery(userId, persona);
-    const folders = await Folder.find(query).sort({ isDefault: -1, createdAt: -1 });
+    // Exclude trashed folders from the normal listing
+    const folders = await Folder.find({ ...query, isTrashed: { $ne: true } }).sort({ isDefault: -1, createdAt: -1 });
     
     // Get resource counts for each folder
     const foldersWithCounts = await Promise.all(
@@ -171,6 +172,28 @@ class FolderService {
     );
     
     return { message: 'Folder and all contents permanently deleted' };
+  }
+
+  static async getTrash(userId, persona) {
+    const query = PersonaDataService.buildPersonaQuery(userId, persona);
+    const folders = await Folder.find({ ...query, isTrashed: true }).sort({ deletedAt: -1 });
+
+    // Include resource counts (including trashed resources inside trashed folders)
+    const foldersWithCounts = await Promise.all(
+      folders.map(async (folder) => {
+        const resourceCount = await Resource.countDocuments({
+          userId,
+          persona,
+          folderId: folder._id
+        });
+        return {
+          ...folder.toObject(),
+          resourceCount
+        };
+      })
+    );
+
+    return foldersWithCounts;
   }
 }
 

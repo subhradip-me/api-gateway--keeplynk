@@ -9,6 +9,7 @@ router.use(personaContext);
 
 // Folder routes
 router.post('/', FolderController.create);
+router.get('/trash', FolderController.getTrash);
 router.get('/', FolderController.getAll);
 router.get('/:id', FolderController.getById);
 router.put('/:id', FolderController.update);

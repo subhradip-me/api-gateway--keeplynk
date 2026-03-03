@@ -12,6 +12,7 @@ router.use(personaContext);
 // NOTE: Specific routes MUST come before parameterized routes (:id)
 router.post('/', ResourceController.create);
 router.post('/upload', upload.single('file'), ResourceController.upload);
+router.get('/trash', ResourceController.getTrash);
 router.get('/search', ResourceController.search);
 router.get('/unorganized', ResourceController.getUnorganized);
 router.patch('/:id/move', ResourceController.moveToFolder);

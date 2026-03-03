@@ -92,6 +92,18 @@ class FolderController {
       return errorResponse(res, error.message, 400);
     }
   }
+
+  static async getTrash(req, res) {
+    try {
+      const folders = await FolderService.getTrash(
+        req.personaContext.userId,
+        req.personaContext.persona
+      );
+      return successResponse(res, folders, 'Trashed folders retrieved successfully');
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+  }
 }
 
 export default FolderController;
