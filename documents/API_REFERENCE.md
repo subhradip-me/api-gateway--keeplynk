@@ -11,7 +11,6 @@ Complete API documentation for all endpoints in the KeepLynk API Gateway.
 - [Agent Endpoints](#agent-endpoints)
 - [Resource Endpoints](#resource-endpoints)
 - [Auto-Organise Endpoints](#auto-organise-endpoints)
-- [Bookmark Endpoints](#bookmark-endpoints)
 - [Folder Endpoints](#folder-endpoints)
 - [Tag Endpoints](#tag-endpoints)
 - [Persona-Specific Endpoints](#persona-specific-endpoints)
@@ -957,151 +956,6 @@ Restore a trashed resource back to active state.
 
 ---
 
-## Bookmark Endpoints
-
-### Get All Bookmarks
-
-Retrieve all bookmarks for current persona.
-
-**Endpoint:** `GET /api/bookmarks`
-
-**Access:** Protected (with Persona Context - **Persona Required**)
-
-**Query Parameters:**
-- `page` (optional) - Page number (default: 1)
-- `limit` (optional) - Items per page (default: 20)
-- `tags` (optional) - Filter by tags (comma-separated)
-- `folder` (optional) - Filter by folder ID
-- `isFavorite` (optional) - Filter favorites (true/false)
-
-**Example:**
-```
-GET /api/bookmarks?folderId=507f1f77bcf86cd799439011&page=1&limit=10
-```
-
-**Success Response (200):**
-```json
-{
-  "success": true,
-  "message": "Bookmarks retrieved successfully",
-  "data": [
-    {
-      "_id": "507f1f77bcf86cd799439012",
-      "url": "https://example.com/javascript-guide",
-      "title": "JavaScript Complete Guide",
-      "description": "Learn JavaScript from scratch",
-      "tags": ["javascript", "programming"],
-      "createdAt": "2025-12-26T10:00:00.000Z"
-    }
-  ]
-}
-```
-
----
-
-### Get Bookmark by ID
-
-Retrieve a specific bookmark.
-
-**Endpoint:** `GET /api/bookmarks/:id`
-
-**Access:** Protected (with Persona Context - **Persona Required**)
-
-**Path Parameters:**
-- `id` - Bookmark ID
-
-**Success Response (200):**
-```json
-{
-  "success": true,
-  "message": "Bookmark retrieved successfully",
-  "data": {
-    "_id": "507f1f77bcf86cd799439012",
-    "userId": "507f1f77bcf86cd799439011",
-    "persona": "student",
-    "url": "https://example.com/article",
-    "title": "Interesting Article",
-    "description": "An article about web development",
-    "tags": ["javascript", "tutorial"],
-    "folderId": "507f1f77bcf86cd799439013",
-    "isFavorite": false,
-    "metadata": {
-      "imageUrl": "https://example.com/image.jpg",
-      "domain": "example.com"
-    },
-    "createdAt": "2025-12-26T10:00:00.000Z",
-    "updatedAt": "2025-12-26T10:00:00.000Z"
-  }
-}
-```
-
----
-
-### Update Bookmark
-
-Update an existing bookmark.
-
-**Endpoint:** `PUT /api/bookmarks/:id`
-
-**Access:** Protected (with Persona Context - **Persona Required**)
-
-**Path Parameters:**
-- `id` - Bookmark ID
-
-**Request Body:**
-```json
-{
-  "title": "Updated Title",
-  "description": "Updated description",
-  "tags": ["javascript", "web-dev", "tutorial"],
-  "isFavorite": true
-}
-```
-
-**Success Response (200):**
-```json
-{
-  "success": true,
-  "message": "Bookmark updated successfully",
-  "data": {
-    "_id": "507f1f77bcf86cd799439012",
-    "title": "Updated Title"
-    "description": "Updated description",
-    "tags": ["javascript", "web-dev", "tutorial"],
-    "isFavorite": true,
-    "updatedAt": "2025-12-26T11:00:00.000Z"
-  }
-}
-```
-
----
-
-### Delete Bookmark
-
-Delete a bookmark.
-
-**Endpoint:** `DELETE /api/bookmarks/:id`
-
-**Access:** Protected (with Persona Context - **Persona Required**)
-
-**Path Parameters:**
-- `id` - Bookmark ID
-
-**Success Response (204):**
-```
-No Content
-```
-
-**Error Response (404):**
-```json
-{
-  "success": false,
-  "message": "Bookmark not found"
-}
-```
-
----
-
 ## Auto-Organise Endpoints
 
 The Auto-Organise feature uses AI to automatically categorize and organize your unorganized resources. All endpoints require authentication and an active persona.
@@ -1298,11 +1152,10 @@ Create a new folder for organizing resources.
   "description": "Resources for web development",
   "color": "#3B82F6",
   "icon": "folder",
-  "parentId": null,  // Optional parent folder ID
-  "order": 0,  // Display order
+  "parentId": null,
+  "order": 0,
   "isShared": false,
   "isDefault": false
-}
 }
 ```
 
@@ -1332,7 +1185,7 @@ Create a new folder for organizing resources.
 
 ### Get All Folders
 
-Retrieve all folders for current persona.
+Retrieve all active (non-trashed) folders for the current persona.
 
 **Endpoint:** `GET /api/folders`
 
@@ -1340,9 +1193,7 @@ Retrieve all folders for current persona.
 
 **Note:** A default "Uncategorized" folder is automatically created for each persona when first accessed.
 
-**Success Response (200):
-
-**Note:** A default "Uncategorized" folder is automatically created for each persona when first accessed.
+**Success Response (200):**
 ```json
 {
   "success": true,
@@ -1354,6 +1205,7 @@ Retrieve all folders for current persona.
       "description": "Resources for web development",
       "color": "#3B82F6",
       "icon": "folder",
+      "resourceCount": 12,
       "createdAt": "2025-12-26T10:00:00.000Z"
     }
   ]
@@ -1429,9 +1281,9 @@ Update an existing folder.
 
 ---
 
-### Delete Folder
+### Delete Folder (Soft Delete)
 
-Delete a folder.
+Move a folder to trash without permanently deleting it. Resources inside the folder remain intact.
 
 **Endpoint:** `DELETE /api/folders/:id`
 
@@ -1440,9 +1292,13 @@ Delete a folder.
 **Path Parameters:**
 - `id` - Folder ID
 
-**Success Response (204):**
-```
-No Content
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Folder moved to trash",
+  "data": null
+}
 ```
 
 **Error Response (404):**
@@ -1450,6 +1306,106 @@ No Content
 {
   "success": false,
   "message": "Folder not found"
+}
+```
+
+---
+
+### Move Folder to Trash
+
+Explicitly move a folder to trash.
+
+**Endpoint:** `PATCH /api/folders/:id/trash`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Path Parameters:**
+- `id` - Folder ID
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Folder moved to trash",
+  "data": null
+}
+```
+
+---
+
+### Restore Folder from Trash
+
+Restore a trashed folder back to active state.
+
+**Endpoint:** `PATCH /api/folders/:id/restore`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Path Parameters:**
+- `id` - Folder ID
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Folder restored successfully",
+  "data": null
+}
+```
+
+---
+
+### Hard Delete Folder
+
+Permanently delete a folder. This action is irreversible.
+
+**Endpoint:** `DELETE /api/folders/:id/hard`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Path Parameters:**
+- `id` - Folder ID
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Folder permanently deleted",
+  "data": null
+}
+```
+
+**Error Response (404):**
+```json
+{
+  "success": false,
+  "message": "Folder not found"
+}
+```
+
+---
+
+### Get Trashed Folders
+
+Retrieve all folders currently in trash.
+
+**Endpoint:** `GET /api/folders/trash/all`
+
+**Access:** Protected (with Persona Context - **Persona Required**)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Trash retrieved successfully",
+  "data": [
+    {
+      "_id": "507f1f77bcf86cd799439013",
+      "name": "Old Folder",
+      "isTrashed": true,
+      "updatedAt": "2026-03-01T10:00:00.000Z"
+    }
+  ]
 }
 ```
 

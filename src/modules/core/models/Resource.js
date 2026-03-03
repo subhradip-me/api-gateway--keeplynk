@@ -80,6 +80,11 @@ const resourceSchema = new mongoose.Schema({
     default: false
   },
 
+  deletedAt: {
+    type: Date,
+    default: null
+  },
+
   metadata: {
     siteName: String,
     author: String,
