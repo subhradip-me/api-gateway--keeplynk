@@ -14,6 +14,7 @@ router.post('/', ResourceController.create);
 router.post('/upload', upload.single('file'), ResourceController.upload);
 router.get('/search', ResourceController.search);
 router.get('/unorganized', ResourceController.getUnorganized);
+router.patch('/:id/move', ResourceController.moveToFolder);
 router.patch('/:id/trash', ResourceController.moveToTrash);
 router.patch('/:id/restore', ResourceController.restoreFromTrash);
 router.get('/', ResourceController.getAll);

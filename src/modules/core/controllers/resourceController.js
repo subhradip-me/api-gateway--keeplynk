@@ -194,6 +194,26 @@ class ResourceController {
     }
   }
 
+  static async moveToFolder(req, res) {
+    try {
+      const { folderId } = req.body;
+      // folderId can be null (move to root) or a valid folder ID string
+      if (folderId !== null && folderId !== undefined && typeof folderId !== 'string') {
+        return errorResponse(res, 'folderId must be a valid folder ID or null', 400);
+      }
+
+      const resource = await ResourceService.moveToFolder(
+        req.personaContext.userId,
+        req.personaContext.persona,
+        req.params.id,
+        folderId ?? null
+      );
+      return successResponse(res, resource, 'Resource moved successfully');
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+  }
+
   static async moveToTrash(req, res) {
     try {
       const resource = await ResourceService.moveToTrash(

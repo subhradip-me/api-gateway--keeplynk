@@ -151,24 +151,16 @@ class ResourceService {
   static async getAll(userId, persona, filters = {}) {
     const query = PersonaDataService.buildPersonaQuery(userId, persona, filters);
     
-    // Get all resources
     const resources = await Resource.find(query)
       .populate('tags', 'name color')
-      .populate('folderId', 'isTrashed')
+      .populate('folderId', 'name color icon isTrashed')
       .sort({ createdAt: -1 });
     
-    // Apply folder invariant: resource is effectively trashed if folder is trashed
+    // Apply folder invariant: resource is effectively trashed if its parent folder is trashed
     return resources.map(resource => {
       const resourceObj = resource.toObject();
-      
-      // If resource has a folder and that folder is trashed,
-      // treat the resource as trashed regardless of its own isTrashed status
-      if (resource.folderId && resource.folderId.isTrashed) {
-        resourceObj.effectivelyTrashed = true;
-      } else {
-        resourceObj.effectivelyTrashed = resource.isTrashed;
-      }
-      
+      const folderIsTrashed = resource.folderId?.isTrashed ?? false;
+      resourceObj.effectivelyTrashed = resource.isTrashed || folderIsTrashed;
       return resourceObj;
     });
   }
@@ -176,16 +168,72 @@ class ResourceService {
   static async getById(userId, persona, resourceId) {
     const resource = await Resource.findOne(
       PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId })
-    ).populate('tags', 'name color');
+    )
+      .populate('tags', 'name color')
+      .populate('folderId', 'name color icon isTrashed');
     
     if (!resource) {
       throw new Error('Resource not found');
     }
     
-    return resource;
+    const resourceObj = resource.toObject();
+    const folderIsTrashed = resource.folderId?.isTrashed ?? false;
+    resourceObj.effectivelyTrashed = resource.isTrashed || folderIsTrashed;
+    return resourceObj;
+  }
+
+  static async moveToFolder(userId, persona, resourceId, targetFolderId) {
+    // Validate the resource exists and belongs to this user/persona
+    const resource = await Resource.findOne(
+      PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId })
+    );
+
+    if (!resource) {
+      throw new Error('Resource not found');
+    }
+
+    // If moving to a specific folder (not root), validate the target folder
+    if (targetFolderId) {
+      const targetFolder = await Folder.findOne(
+        PersonaDataService.buildPersonaQuery(userId, persona, { _id: targetFolderId })
+      );
+
+      if (!targetFolder) {
+        throw new Error('Target folder not found or does not belong to this persona');
+      }
+
+      if (targetFolder.isTrashed) {
+        throw new Error('Cannot move resource into a trashed folder');
+      }
+    }
+
+    // Use $set explicitly so folderId: null works correctly
+    const updated = await Resource.findOneAndUpdate(
+      PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId }),
+      { $set: { folderId: targetFolderId ?? null } },
+      { new: true }
+    )
+      .populate('tags', 'name color')
+      .populate('folderId', 'name color icon isTrashed');
+
+    const resourceObj = updated.toObject();
+    resourceObj.effectivelyTrashed = updated.isTrashed || (updated.folderId?.isTrashed ?? false);
+    return resourceObj;
   }
 
   static async update(userId, persona, resourceId, updateData) {
+    // folderId changes must go through moveToFolder for proper validation
+    if ('folderId' in updateData) {
+      const { folderId, ...rest } = updateData;
+      // If only folderId was being changed, delegate entirely to moveToFolder
+      if (Object.keys(rest).length === 0) {
+        return this.moveToFolder(userId, persona, resourceId, folderId);
+      }
+      // Otherwise move first, then apply the rest of the update below
+      await this.moveToFolder(userId, persona, resourceId, folderId);
+      updateData = rest;
+    }
+
     // Handle tags: convert tag names to tag IDs if tags are being updated
     if (updateData.tags && Array.isArray(updateData.tags)) {
       const tagIds = await this.processTagNames(userId, persona, updateData.tags);
@@ -196,13 +244,18 @@ class ResourceService {
       PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId }),
       updateData,
       { new: true, runValidators: true }
-    ).populate('tags', 'name color');
+    )
+      .populate('tags', 'name color')
+      .populate('folderId', 'name color icon isTrashed');
     
     if (!resource) {
       throw new Error('Resource not found');
     }
     
-    return resource;
+    const resourceObj = resource.toObject();
+    const folderIsTrashed = resource.folderId?.isTrashed ?? false;
+    resourceObj.effectivelyTrashed = resource.isTrashed || folderIsTrashed;
+    return resourceObj;
   }
 
   static async delete(userId, persona, resourceId) {
@@ -220,13 +273,19 @@ class ResourceService {
   static async getByFolder(userId, persona, folderId) {
     return await Resource.find(
       PersonaDataService.buildPersonaQuery(userId, persona, { folderId })
-    ).populate('tags', 'name color').sort({ createdAt: -1 });
+    )
+      .populate('tags', 'name color')
+      .populate('folderId', 'name color icon isTrashed')
+      .sort({ createdAt: -1 });
   }
 
   static async getFavorites(userId, persona) {
     return await Resource.find(
       PersonaDataService.buildPersonaQuery(userId, persona, { isFavorite: true })
-    ).populate('tags', 'name color').sort({ createdAt: -1 });
+    )
+      .populate('tags', 'name color')
+      .populate('folderId', 'name color icon isTrashed')
+      .sort({ createdAt: -1 });
   }
 
   static async search(userId, persona, searchTerm) {
@@ -237,21 +296,25 @@ class ResourceService {
         { description: { $regex: searchTerm, $options: 'i' } },
         { url: { $regex: searchTerm, $options: 'i' } }
       ]
-    }).populate('tags', 'name color').sort({ createdAt: -1 });
+    })
+      .populate('tags', 'name color')
+      .populate('folderId', 'name color icon isTrashed')
+      .sort({ createdAt: -1 });
   }
 
   static async getUnorganized(userId, persona) {
     return await Resource.find({
       ...PersonaDataService.buildPersonaQuery(userId, persona),
       $or: [
-        // No description or empty description
         { description: { $exists: false } },
         { description: '' },
-        // No tags
         { tags: { $size: 0 } },
         { tags: { $exists: false } }
       ]
-    }).populate('tags', 'name color').sort({ createdAt: -1 });
+    })
+      .populate('tags', 'name color')
+      .populate('folderId', 'name color icon isTrashed')
+      .sort({ createdAt: -1 });
   }
 
   static async moveToTrash(userId, persona, resourceId) {
@@ -262,7 +325,9 @@ class ResourceService {
         deletedAt: new Date()
       },
       { new: true }
-    );
+    )
+      .populate('tags', 'name color')
+      .populate('folderId', 'name color icon isTrashed');
     if (!resource) {
       throw new Error('Resource not found');
     }
@@ -303,7 +368,9 @@ class ResourceService {
         folderId: targetFolderId
       },
       { new: true }
-    );
+    )
+      .populate('tags', 'name color')
+      .populate('folderId', 'name color icon isTrashed');
     
     return updatedResource;
   }
