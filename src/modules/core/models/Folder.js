@@ -45,6 +45,14 @@ const folderSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  isTrashed: {
+    type: Boolean,
+    default: false
+  },
+  deletedAt: { 
+    type: Date, 
+    default: null 
+  },
   sharedWith: [{
     userId: {
       type: mongoose.Schema.Types.ObjectId,

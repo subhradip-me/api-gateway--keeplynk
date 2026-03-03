@@ -54,16 +54,54 @@ class FolderController {
     }
   }
 
-  static async delete(req, res) {
+  static async softDelete(req, res) {
     try {
-      await FolderService.delete(
+      await FolderService.softDelete(
         req.personaContext.userId,
         req.personaContext.persona,
         req.params.id
       );
-      return res.status(204).send();
+      return successResponse(res, null, 'Folder moved to trash');
     } catch (error) {
-      return errorResponse(res, error.message, 404);
+      return errorResponse(res, error.message, 400);
+    }
+  }
+
+  static async restore(req, res) {
+    try {
+      await FolderService.restore(
+        req.personaContext.userId,
+        req.personaContext.persona,
+        req.params.id
+      );
+      return successResponse(res, null, 'Folder restored successfully');
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+  }
+
+  static async hardDelete(req, res) {
+    try {
+      await FolderService.hardDelete(
+        req.personaContext.userId,
+        req.personaContext.persona,
+        req.params.id
+      );
+      return successResponse(res, null, 'Folder permanently deleted');
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+  }
+
+  static async getTrash(req, res) {
+    try {
+      const trash = await FolderService.getTrash(
+        req.personaContext.userId,
+        req.personaContext.persona
+      );
+      return successResponse(res, trash, 'Trash retrieved successfully');
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
     }
   }
 }
