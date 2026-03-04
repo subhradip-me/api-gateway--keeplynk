@@ -80,6 +80,11 @@ const resourceSchema = new mongoose.Schema({
     default: false
   },
 
+  trashedByFolder: {
+    type: Boolean,
+    default: false
+  },
+
   deletedAt: {
     type: Date,
     default: null

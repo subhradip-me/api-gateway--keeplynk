@@ -1,4 +1,5 @@
 import Resource from '../models/Resource.js';
+import Folder from '../models/Folder.js';
 import Tag from '../models/Tag.js';
 import FolderService from './folderService.js';
 import PersonaDataService from '../../shared/services/PersonaDataService.js';
@@ -75,7 +76,7 @@ class ResourceService {
       const tagIds = await this.processTagNames(userId, persona, resourceData.tags);
       resourceData.tags = tagIds;
     }
-    
+
     // For document type, handle file information
     if (resourceData.type === 'document') {
       const fileData = {
@@ -84,19 +85,19 @@ class ResourceService {
         mimeType: resourceData.mimeType,
         size: resourceData.fileSize
       };
-      
+
       // Clean up temporary fields and add to file object
       delete resourceData.filePath;
       delete resourceData.fileName;
       delete resourceData.mimeType;
       delete resourceData.fileSize;
-      
+
       resourceData.file = fileData;
-      
+
       // Documents don't need URL
       delete resourceData.url;
     }
-    
+
     const resource = await Resource.create(
       PersonaDataService.sanitizePersonaDocument(resourceData, userId, persona)
     );
@@ -109,26 +110,26 @@ class ResourceService {
    */
   static async processTagNames(userId, persona, tags) {
     const tagIds = [];
-    
+
     for (const tag of tags) {
       // If already an ObjectId, use it
       if (typeof tag === 'object' && tag._id) {
         tagIds.push(tag._id);
         continue;
       }
-      
+
       // If it's a string, treat it as a tag name
       if (typeof tag === 'string') {
         const tagName = tag.trim();
         if (!tagName) continue;
-        
+
         // Find existing tag or create new one
         let existingTag = await Tag.findOne({
           userId,
           persona,
           name: tagName
         });
-        
+
         if (!existingTag) {
           // Create new tag with intelligent color assignment
           const color = this.getColorForTag(tagName);
@@ -139,11 +140,11 @@ class ResourceService {
             color: color
           });
         }
-        
+
         tagIds.push(existingTag._id);
       }
     }
-    
+
     return tagIds;
   }
 
@@ -158,11 +159,11 @@ class ResourceService {
     const resource = await Resource.findOne(
       PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId })
     ).populate('tags', 'name color');
-    
+
     if (!resource) {
       throw new Error('Resource not found');
     }
-    
+
     return resource;
   }
 
@@ -172,17 +173,17 @@ class ResourceService {
       const tagIds = await this.processTagNames(userId, persona, updateData.tags);
       updateData.tags = tagIds;
     }
-    
+
     const resource = await Resource.findOneAndUpdate(
       PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId }),
       updateData,
       { new: true, runValidators: true }
     ).populate('tags', 'name color');
-    
+
     if (!resource) {
       throw new Error('Resource not found');
     }
-    
+
     return resource;
   }
 
@@ -190,11 +191,11 @@ class ResourceService {
     const resource = await Resource.findOneAndDelete(
       PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId })
     );
-    
+
     if (!resource) {
       throw new Error('Resource not found');
     }
-    
+
     return resource;
   }
 
@@ -238,7 +239,11 @@ class ResourceService {
   static async moveToTrash(userId, persona, resourceId) {
     const resource = await Resource.findOneAndUpdate(
       PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId }),
-      { isTrashed: true },
+      { 
+        isTrashed: true,
+        trashedByFolder: false,
+        deletedAt: new Date()
+      },
       { new: true }
     );
     if (!resource) {
@@ -248,15 +253,46 @@ class ResourceService {
   }
 
   static async restoreFromTrash(userId, persona, resourceId) {
-    const resource = await Resource.findOneAndUpdate(
-      PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId }),
-      { isTrashed: false },
-      { new: true }
+    const resource = await Resource.findOne(
+      PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId })
     );
+
     if (!resource) {
       throw new Error('Resource not found');
     }
-    return resource;
+
+    let updateData = {
+      isTrashed: false,
+      trashedByFolder: false,
+      deletedAt: null
+    };
+
+    // Check parent folder: move to default if missing, deleted, or still trashed
+    if (resource.folderId) {
+      const folder = await Folder.findOne({
+        _id: resource.folderId,
+        userId,
+        persona
+      });
+
+      // Folder doesn't exist (permanently deleted) or is still trashed
+      if (!folder || folder.isTrashed) {
+        const defaultFolder = await FolderService.getOrCreateDefaultFolder(userId, persona);
+        updateData.folderId = defaultFolder._id;
+      }
+    } else {
+      // No folderId assigned — move to default folder
+      const defaultFolder = await FolderService.getOrCreateDefaultFolder(userId, persona);
+      updateData.folderId = defaultFolder._id;
+    }
+
+    const updatedResource = await Resource.findOneAndUpdate(
+      PersonaDataService.buildPersonaQuery(userId, persona, { _id: resourceId }),
+      { $set: updateData },
+      { new: true }
+    ).populate('tags', 'name color');
+
+    return updatedResource;
   }
 }
 

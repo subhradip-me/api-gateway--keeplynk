@@ -117,9 +117,14 @@ class FolderService {
       folder.deletedAt = now;
       await folder.save({ session });
 
+      // Only trash resources that aren't already trashed (preserve manually trashed items)
       await Resource.updateMany(
-        { userId, persona, folderId },
-        { isTrashed: true, deletedAt: now },
+        { userId, persona, folderId, isTrashed: false },
+        { 
+          isTrashed: true, 
+          trashedByFolder: true,
+          deletedAt: now 
+        },
         { session }
       );
 
@@ -151,9 +156,15 @@ class FolderService {
       folder.deletedAt = null;
       await folder.save({ session });
 
+      // Only restore resources that were trashed due to folder deletion
+      // Keep manually trashed resources in trash
       await Resource.updateMany(
-        { userId, persona, folderId },
-        { isTrashed: false, deletedAt: null },
+        { userId, persona, folderId, trashedByFolder: true },
+        { 
+          isTrashed: false, 
+          trashedByFolder: false,
+          deletedAt: null 
+        },
         { session }
       );
 
